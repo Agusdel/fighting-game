@@ -90,7 +90,7 @@ Status: **Draft**. This document is the source of truth for the design. Update i
 |  WorldState, Tick, Physics |  INetworkTransport              |
 |  Combat, FrameData         |  Loopback / ENet / Steam        |
 +----------------------------+---------------------------------+
-| Core (pure C#): Fixed, FixedVector2, FixedAabb, Rng, Hash    |
+| Core (pure C#): Fixed, FixedVector2, FixedAABB, FixedRng, Hash |
 +--------------------------------------------------------------+
 ```
 
@@ -108,13 +108,13 @@ Core, Simulation, Session, and the Godot-free part of Networking are in a separa
 - Explicit rounding rules (documented in code). Multiply: `(a * b) >> 16` with an arithmetic shift.
 - Conversion from `float` is **not** allowed in the simulation. Conversion from `int` and from rational constants (`Fixed.FromRatio(3, 2)`) is allowed.
 - Conversion to `float` is allowed only in the presentation layer.
-- Types built on it: `FixedVector2`, `FixedAabb`.
+- Types built on it: `FixedVector2`, `FixedAABB`.
 
 ### 3.3 World state
 
 - `WorldState` is a struct (or a class that holds only fixed-size struct arrays) with:
   - `Frame` (int)
-  - `Rng` state (deterministic PRNG, for example xorshift)
+  - `Rng` (`FixedRng`, deterministic PRNG)
   - `MatchPhase` and phase timer (for example: countdown, fighting, restarting)
   - `FighterState[MaxPlayers]`
 - `FighterState` (unmanaged struct):
@@ -238,7 +238,7 @@ public interface INetworkTransport
     simulation/                     Pure C# class library (no Godot reference)
       .gdignore                     Godot editor ignores this folder
       FightingGame.Simulation.csproj
-      Core/                         Fixed, FixedVector2, FixedAabb, Rng, Hash
+      Core/                         Fixed, FixedVector2, FixedAABB, FixedRng, Hash
       Simulation/                   WorldState, Tick, physics, combat, static data types
       Session/                      Sessions, input queue, replay
       Networking/                   INetworkTransport, protocol, LoopbackTransport
@@ -285,7 +285,7 @@ Each milestone must be runnable and testable before the next one starts.
 | # | Milestone | Done when |
 |---|---|---|
 | M0 | Project skeleton | Folder layout, test project, build command work. **Done 2026-09-25** |
-| M1 | Core math | `Fixed`, `FixedVector2`, `FixedAabb`, `Rng`, hash; unit tests pass |
+| M1 | Core math | `Fixed`, `FixedVector2`, `FixedAABB`, `FixedRng`, hash; unit tests pass. **Done 2026-09-25** |
 | M2 | Simulation core | One fighter moves, jumps, falls, collides with a hard-coded stage. State save/restore/hash works. Boxes drawn as rectangles |
 | M3 | Editor authoring | Stage authored in `Stage01.tscn` and converted to `StageData` |
 | M4 | Determinism tools | Replay recording, replay viewer with slider, hash check, SyncTest mode |
@@ -313,20 +313,23 @@ Status: **Agreed** (2026-09-25).
 
 | Type | Kind | Content |
 |---|---|---|
-| `Fixed` | `readonly struct` | `long Raw`. `FromInt`, `FromRatio(num, den)`, `FromRaw`. Operators `+ - * / %`, unary `-`, comparisons. `Abs`, `Min`, `Max`, `Clamp`, `Sign`, `Floor`, `Ceil`, `Round`, `ToInt` (floor). `ToFloat()` only for presentation (marked with an attribute or a separate extension in the Godot project) |
+| `Fixed` | `readonly struct` | `long Raw`. `FromInt`, `FromRatio(num, den)`, `FromRaw`, implicit conversion from `int`. Operators `+ - * / %`, unary `-`, comparisons. `Abs`, `Min`, `Max`, `Clamp`, `Sign`, `Floor`, `Ceil`, `Round`, `FloorToInt`, `CeilToInt`, `RoundToInt`. No `ToFloat` in the library: the Godot project adds it as an extension method (M2) |
 | `FixedVector2` | `readonly struct` | `Fixed X, Y`. `+ -`, scalar `*` and `/`, `Zero` |
-| `FixedAabb` | `readonly struct` | `FixedVector2 Min, Max`. `Overlaps`, `Translate`, `MirrorX(originX)`, `FromCenterSize` |
-| `Rng` | `struct` | xorshift64* or PCG32 state (`ulong`). `NextInt(maxExclusive)`, `NextFixed()` |
-| `StateHasher` | `ref struct` | FNV-1a 64-bit. `Add(int)`, `Add(long)`, `Add(Fixed)`, `Add(FixedVector2)` … |
+| `FixedAABB` | `readonly struct` | `FixedVector2 Min, Max`. `Overlaps` (touching edges do not overlap), `Translate`, `MirrorX(originX)`, `FromMinSize`, `FromCenterSize` |
+| `FixedRng` | `struct` | xorshift64* (`ulong` state), seeded with SplitMix64. `NextULong`, `NextUInt`, `NextInt`, `NextFixed()` in [0, 1), `Hash` |
+| `StateHasher` | `struct` | FNV-1a 64-bit, little-endian, field by field. `Add` for all integer types, `bool`, `Fixed`, `FixedVector2`, `FixedAABB`. Start with `new StateHasher()` |
 
 Rounding rules (tested):
-- Multiply: `(a.Raw * b.Raw) >> 16`. Arithmetic shift, so the result rounds toward negative infinity.
-- Divide: `(a.Raw << 16) / b.Raw`. C# integer division, so the result rounds toward zero.
+- Multiply: `(a.Raw * b.Raw) >> 16` with an exact 128-bit product (`Math.BigMul`). Arithmetic shift, so the result rounds toward negative infinity.
+- Divide: `(a.Raw << 16) / b.Raw` with an exact 128-bit dividend (`Int128`). C# integer division, so the result rounds toward zero.
+- There is no intermediate overflow. Only a final result outside Q48.16 wraps.
+- `Round`: `floor(x + 0.5)`. Halves round toward positive infinity.
+- Tests compare the RNG and the hash with reference values from an independent Python implementation and the published FNV-1a vectors.
 - `FromRatio(num, den)`: same rule as divide.
 
 ### 9.3 State layout (M2)
 
-- `WorldState` is **one unmanaged struct**. It contains `Frame`, `Rng`, `MatchPhase`, `PhaseTimer`, and `Fighters`.
+- `WorldState` is **one unmanaged struct**. It contains `Frame`, `Rng` (`FixedRng`), `MatchPhase`, `PhaseTimer`, and `Fighters`.
 - `Fighters` is a fixed-size inline array of 4 `FighterState` (`[InlineArray(4)]`, available in .NET 8). There is no heap allocation.
 - Snapshot for rollback = struct copy (`WorldState copy = state;`). The ring buffer is `WorldState[]`. This is very fast.
 - Hash = explicit, field by field. Each state struct has a method `void Hash(ref StateHasher h)`.
@@ -354,7 +357,7 @@ Rounding rules (tested):
 ### 9.4 Static data (M2)
 
 - `GameData` (class, read-only after load): `StageData`, `FighterStats`, later `MoveData`.
-- `StageData`: `FixedAabb[] Solids`, `FixedAabb[] Platforms`, `FixedVector2[] SpawnPoints`. The array order is the order of the nodes in the scene tree, so it is the same on every machine.
+- `StageData`: `FixedAABB[] Solids`, `FixedAABB[] Platforms`, `FixedVector2[] SpawnPoints`. The array order is the order of the nodes in the scene tree, so it is the same on every machine.
 - `FighterStats`: `WalkSpeed`, `AirSpeed`, `AirAcceleration`, `Gravity`, `MaxFallSpeed`, `JumpVelocity`, `JumpSquatFrames`, `CollisionBoxSize`.
 - In M2 the stage is hard-coded in C#. In M3 it comes from `Stage01.tscn`.
 
@@ -411,4 +414,5 @@ public static class Simulation
 | 2026-09-25 | Knockback: fixed velocity per hitbox, no scaling; closed stage, no blast zones |
 | 2026-09-25 | Double jump: yes. Platform drop-through: Down + Jump |
 | 2026-09-25 | Section 9 (M0–M2 detailed design) agreed |
+| 2026-09-25 | Renamed `FixedAabb` to `FixedAABB` and `Rng` to `FixedRng` |
 | 2026-09-25 | Build with scripts in `scripts/` (dotnet build + Godot headless build). No editor MCP for now |

@@ -1,5 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <!-- Pure C# simulation library. It must not reference Godot. See project.md section 4. -->
+  <!-- Pure C# simulation library. It must not reference Godot, so that Godot types cannot enter the deterministic simulation. -->
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <RootNamespace>FightingGame</RootNamespace>
