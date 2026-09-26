@@ -1,3 +1,22 @@
 [gd_scene format=3 uid="uid://o0iv8jscfomq"]
 
-[node name="Match" type="Node2D" unique_id=2000042306]
+[ext_resource type="Script" uid="uid://bgtjhesu7sfcr" path="res://src/Presentation/MatchRunner.cs" id="1_1w71u"]
+[ext_resource type="Script" uid="uid://1p6j2wf63n34" path="res://src/Presentation/StageView.cs" id="2_d2rnv"]
+
+[node name="Match" type="Node2D" unique_id=2000042306 node_paths=PackedStringArray("StageView", "FightersRoot", "DebugLabel")]
+script = ExtResource("1_1w71u")
+PlayerCount = 2
+StageView = NodePath("StageView")
+FightersRoot = NodePath("Fighters")
+DebugLabel = NodePath("DebugLabel")
+
+[node name="StageView" type="Node2D" parent="." unique_id=1152479855]
+script = ExtResource("2_d2rnv")
+
+[node name="Fighters" type="Node2D" parent="." unique_id=1874574063]
+
+[node name="DebugLabel" type="Label" parent="." unique_id=1277548720]
+offset_left = 44.0
+offset_top = 40.0
+offset_right = 45.0
+offset_bottom = 63.0

@@ -55,6 +55,10 @@ The Godot MCP Pro server (`godot-mcp-pro`) connects Claude to the open Godot edi
 - `update_property` keeps string values as literal text. Do not put quotes around them.
 - `delete_scene` does not delete a scene that is open. Close its tab first (`EditorInterface.close_scene()` in `execute_editor_script`).
 - To install the server on a new machine, run `node build/setup.js install` in the server folder. `node_modules/` is not in git.
+- Do not start a headless Godot **editor** (`--editor`, `--build-solutions`, `--import`) while the user's editor is open. The MCP plugin in the headless editor removes its autoloads from `project.godot` when it quits, and the game then starts without them. `scripts/build.sh` skips the Godot build in this case. A headless **game** run (`godot --headless --path project res://scenes/X.tscn --quit-after N`) is safe.
+- If `project.godot` loses the `MCP*` autoloads, restore them with `project set-setting --setting autoload/<Name> --value "*res://addons/godot_mcp/<file>.gd" --type string`.
+- `input key` sets only the logical `keycode`. The game reads physical keys, so it does not see these events. To simulate a key, use `runtime exec` with an `InputEventKey` that sets `physical_keycode`, then `Input.parse_input_event(e)`.
+- Each CLI call takes several seconds. Do not use CLI timing to check frame-exact behavior; use unit tests for that.
 
 Tool usage instructions from the MCP package:
 
@@ -64,7 +68,7 @@ Tool usage instructions from the MCP package:
 
 Use the scripts in `scripts/` (run them from any folder):
 
-- `scripts/build.sh` — Runs `dotnet build` on `FightingGame.sln`, then a Godot headless build (the same as the editor Build button). Use `--no-godot` to skip the Godot build.
+- `scripts/build.sh` — Runs `dotnet build` on `FightingGame.sln`, then a Godot headless build (the same as the editor Build button). Use `--no-godot` to skip the Godot build. It skips the Godot build when the editor is open with this project.
 - `scripts/test.sh` — Runs all unit tests. Extra arguments go to `dotnet test` (for example `--filter FixedTests`).
 - `scripts/godot-path.sh` — Prints the Godot executable path. It reads `$GODOT_BIN`, then `godotTools.editorPath.godot4` in `fighting-game.code-workspace`.
 

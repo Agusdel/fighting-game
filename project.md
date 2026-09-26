@@ -12,14 +12,9 @@ Status: **Draft**. This document is the source of truth for the design. Update i
 
 Update this section at the end of each work session.
 
-- **Done:** M0 (skeleton), M1 (core math), M2 simulation side (`WorldState`, `Simulator.Tick`, movement, double jump, platforms, tests).
-- **Git:** M0 and M1 are committed. The M2 simulation side (and the `InputFlags` rename) is not committed yet.
-- **Next:** M2 Godot side. The work stops after each step for review.
-  1. `FixedExtensions` in `project/src/` (`Fixed.ToFloat()`, `FixedVector2.ToVector2()`, for display only).
-  2. `MatchRunner` (Node): owns `WorldState` and `GameData`, 60 Hz accumulator (section 9.6), keyboard input to `InputFlags`, one `Simulator.Tick` per tick.
-  3. `StageView` (draws solids and platforms as rectangles) and `FighterView` (draws the collision box of one fighter).
-  4. `Match.tscn`: it already exists (created by the user), with one root `Node2D` named `Game`. `Stage01.tscn` and `MainMenu.tscn` also exist (empty). Claude makes the node changes through the Godot MCP (Claude does not edit `.tscn` files as text).
-  5. Run it, check the movement on screen, tune `DefaultGameData` values.
+- **Done:** M0, M1, M2 (simulation and Godot side). `Match.tscn` runs one fighter on the default stage with placeholder rectangles.
+- **Git:** M2 Godot side is not committed yet.
+- **Next:** the user plays `Match.tscn` (F6 in the editor) and checks the movement feel. Then tune `DefaultGameData` values if necessary. After that, M3 (stage authoring in the editor).
 - **Later:** make fighter behavior data-driven (see section 6).
 - **Before the first public build:** create `scripts/export.sh` (see section 10).
 
@@ -305,7 +300,7 @@ Each milestone must be runnable and testable before the next one starts.
 |---|---|---|
 | M0 | Project skeleton | Folder layout, test project, build command work. **Done 2026-09-25** |
 | M1 | Core math | `Fixed`, `FixedVector2`, `FixedAABB`, `FixedRng`, hash; unit tests pass. **Done 2026-09-25** |
-| M2 | Simulation core | One fighter moves, jumps, falls, collides with a hard-coded stage. State save/restore/hash works. Boxes drawn as rectangles. **Simulation side done 2026-09-25**; Godot side pending |
+| M2 | Simulation core | One fighter moves, jumps, falls, collides with a hard-coded stage. State save/restore/hash works. Boxes drawn as rectangles. **Done 2026-09-26** (movement feel not yet checked by the user) |
 | M3 | Editor authoring | Stage authored in `Stage01.tscn` and converted to `StageData` |
 | M4 | Determinism tools | Replay recording, replay viewer with slider, hash check, SyncTest mode |
 | M5 | Local multiplayer | Main menu (local), lobby with device assignment, 2–4 local players |
@@ -413,10 +408,14 @@ public static class Simulator
 
 ### 9.6 Game loop (M2, Godot side)
 
-- `MatchRunner` (Node) owns `WorldState`, `GameData`, and a session (`LocalSession` in M2).
+- `MatchRunner` (Node2D, root of `Match.tscn`) owns `WorldState` and `GameData`. There is no session class yet: M2 calls `Simulator.Tick` directly. `LocalSession` comes with M4/M5.
 - In `_Process(delta)`: add `delta` to an accumulator. While the accumulator ≥ 1/60 s: poll input, run one tick. Limit to a maximum number of ticks for each render frame.
 - The accumulator uses `double`. This is allowed, because it only decides **when** a tick runs, not **what** a tick does.
-- `FighterView` (Node2D) reads `FighterState` each render and sets its `Position` (converted to float). `DebugDraw` draws collision boxes.
+- After the ticks of a render frame, `MatchRunner` calls `Refresh` on each view. The views do not read the state by themselves, so the `_Process` order does not matter.
+- `FighterView` (Node2D, origin = feet) draws the collision box, a facing triangle, and a feet marker (filled = grounded). `MatchRunner` creates one `FighterView` per slot in code, under the `Fighters` node.
+- `StageView` draws solids and platforms. `DebugLabel` shows the frame, the state hash, and the fighter 0 state.
+- Keyboard input: `KeyboardInputMap` reads **physical** keys directly (`Input.IsPhysicalKeyPressed`), not Godot input actions. Physical keys work on every layout, and two players can share one keyboard. Maps: `Wasd` (WASD, Space jump, J attack) and `Arrows` (arrows, keypad Enter jump, keypad 0 attack).
+- `Fixed` to float conversions are extension methods in `project/src/Presentation/FixedExtensions.cs`, so the simulation library cannot call them.
 - No interpolation between ticks in the first version.
 
 ### 9.7 M0 tasks
@@ -448,6 +447,8 @@ public static class Simulator
 | 2026-09-25 | Section 9 (M0–M2 detailed design) agreed |
 | 2026-09-25 | Renamed `FixedAabb` to `FixedAABB` and `Rng` to `FixedRng` |
 | 2026-09-26 | Renamed `InputBits` to `InputFlags` |
+| 2026-09-26 | Keyboard input reads physical keys directly (no Godot input actions) |
+| 2026-09-26 | `scripts/build.sh` skips the headless Godot build while the editor is open (the MCP plugin changes `project.godot` when a headless editor quits) |
 | 2026-09-25 | Build with scripts in `scripts/` (dotnet build + Godot headless build). No editor MCP for now |
 | 2026-09-26 | Godot MCP Pro added (`mcp/` server, `project/addons/godot_mcp/` plugin). Claude edits scenes and Godot resources only through the MCP. This replaces "No editor MCP for now" |
 | 2026-09-26 | Builds that leave the developer's computer are made only with `scripts/export.sh`, which removes the MCP addon and autoloads and checks the result (section 10) |

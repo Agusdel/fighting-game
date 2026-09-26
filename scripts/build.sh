@@ -14,6 +14,14 @@ if [[ "${1:-}" == "--no-godot" ]]; then
     exit 0
 fi
 
+# A headless Godot editor also loads the MCP plugin. When it quits, the plugin removes its autoloads
+# and saves project.godot. If the user's editor is open, the running game then starts without them.
+# So skip this step when a Godot editor for this project is open. The open editor builds again on Play.
+if pgrep -f -- "--path $ROOT/project.*(--editor|-e( |$))" >/dev/null; then
+    echo "== Godot build skipped: the Godot editor is open with this project."
+    exit 0
+fi
+
 echo "== Godot build"
 GODOT="$("$ROOT/scripts/godot-path.sh")"
 LOG="$(mktemp)"
