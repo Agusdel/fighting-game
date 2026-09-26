@@ -31,10 +31,13 @@ Write all communication in ASD-STE100 Simplified Technical English:
 
 ## Build and test
 
-Run these commands from `project/`:
+Use the scripts in `scripts/` (run them from any folder):
 
-- Build all projects: `dotnet build FightingGame.sln`
-- Run the tests: `dotnet test FightingGame.sln`
+- `scripts/build.sh` — Runs `dotnet build` on `FightingGame.sln`, then a Godot headless build (the same as the editor Build button). Use `--no-godot` to skip the Godot build.
+- `scripts/test.sh` — Runs all unit tests. Extra arguments go to `dotnet test` (for example `--filter FixedTests`).
+- `scripts/godot-path.sh` — Prints the Godot executable path. It reads `$GODOT_BIN`, then `godotTools.editorPath.godot4` in `fighting-game.code-workspace`.
+
+Run `scripts/build.sh` and `scripts/test.sh` after each code change.
 
 Only the .NET 10 runtime is installed. The test project targets `net8.0` and uses `RollForward=Major` to run on .NET 10.
 

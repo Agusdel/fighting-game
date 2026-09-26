@@ -226,6 +226,7 @@ public interface INetworkTransport
 ```
 /                                   Repository root (docs, tests, tools)
   project.md                        This document
+  scripts/                          build.sh, test.sh, godot-path.sh (see CLAUDE.md)
   tests/
     FightingGame.Simulation.Tests/  xUnit tests for the simulation library
   tools/
@@ -283,7 +284,7 @@ Each milestone must be runnable and testable before the next one starts.
 
 | # | Milestone | Done when |
 |---|---|---|
-| M0 | Project skeleton | Folder layout, test project, build command work. **Done 2026-09-25** (Godot editor build not yet verified) |
+| M0 | Project skeleton | Folder layout, test project, build command work. **Done 2026-09-25** |
 | M1 | Core math | `Fixed`, `FixedVector2`, `FixedAabb`, `Rng`, hash; unit tests pass |
 | M2 | Simulation core | One fighter moves, jumps, falls, collides with a hard-coded stage. State save/restore/hash works. Boxes drawn as rectangles |
 | M3 | Editor authoring | Stage authored in `Stage01.tscn` and converted to `StageData` |
@@ -410,3 +411,4 @@ public static class Simulation
 | 2026-09-25 | Knockback: fixed velocity per hitbox, no scaling; closed stage, no blast zones |
 | 2026-09-25 | Double jump: yes. Platform drop-through: Down + Jump |
 | 2026-09-25 | Section 9 (M0–M2 detailed design) agreed |
+| 2026-09-25 | Build with scripts in `scripts/` (dotnet build + Godot headless build). No editor MCP for now |
