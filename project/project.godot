@@ -15,6 +15,12 @@ run/main_scene="uid://b4bwyhe6dc7m4"
 config/features=PackedStringArray("4.8", "C#", "GL Compatibility")
 config/icon="res://assets/icon.svg"
 
+[autoload]
+
+MCPScreenshot="*res://addons/godot_mcp/mcp_screenshot_service.gd"
+MCPInputService="*res://addons/godot_mcp/mcp_input_service.gd"
+MCPGameInspector="*res://addons/godot_mcp/mcp_game_inspector_service.gd"
+
 [display]
 
 window/stretch/mode="canvas_items"
@@ -23,6 +29,10 @@ window/stretch/aspect="expand"
 [dotnet]
 
 project/assembly_name="FightingGame"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/godot_mcp/plugin.cfg")
 
 [gui]
 

@@ -13,3 +13,6 @@
 bin/
 obj/
 *.user
+
+# Godot MCP server dependencies (run `node build/setup.js install` in mcp/*/server)
+mcp/*/server/node_modules/

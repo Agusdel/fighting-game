@@ -34,11 +34,31 @@ Write all communication in ASD-STE100 Simplified Technical English:
 
 Godot links files with UIDs (`.uid` sidecar files for scripts, a `uid` in the header of `.tscn`/`.tres`, `.import` files for assets). A broken link corrupts scenes or loses references.
 
-- Do not create, edit, move, or delete `.tscn`, `.tres`, or imported assets with text tools. Ask the user to do it in the editor.
+- Do not create, edit, move, or delete `.tscn`, `.tres`, `project.godot`, or imported assets with text tools. Always use the Godot MCP tools (see "Godot MCP" below).
+- If the Godot MCP is not connected, ask the user to open the editor. Do not use text tools as a fallback.
 - You can create new `.cs` files. Do not create the `.uid` file. Godot creates it during the build.
 - To move or rename a `.cs` file, move its `.uid` file with it (`git mv` both).
 - To delete a `.cs` file, delete its `.uid` file too.
 - Files in `project/simulation/` are not imported by Godot (`.gdignore`). These rules do not apply there.
+
+## Godot MCP
+
+The Godot MCP Pro server (`godot-mcp-pro`) connects Claude to the open Godot editor. `.mcp.json` registers it. The server is in `mcp/godot-mcp-pro-v1.17.1/server/`. The editor plugin is in `project/addons/godot_mcp/`.
+
+- Use the MCP tools for all work on scenes, nodes, resources, project settings, and input actions.
+- The Godot editor must be open with the project, and the plugin must be enabled.
+- If the `mcp__godot-mcp-pro__*` tools are not loaded, use the CLI: `node mcp/godot-mcp-pro-v1.17.1/server/build/cli.js <group> <command>`. Run `--help` to see the commands.
+- Write scripts in C#, with the usual file tools. Do not use `create_script` or `edit_script` to make GDScript files.
+- `execute_editor_script` and `execute_game_script` take GDScript. You can use them for editor tasks. Do not save that code as project files.
+- `create_scene` does not open the new scene. Call `open_scene` before `add_node`, or the nodes go into the scene that is open now.
+- `get_scene_tree` shows the path of the open scene. Check it before you edit or save.
+- `update_property` keeps string values as literal text. Do not put quotes around them.
+- `delete_scene` does not delete a scene that is open. Close its tab first (`EditorInterface.close_scene()` in `execute_editor_script`).
+- To install the server on a new machine, run `node build/setup.js install` in the server folder. `node_modules/` is not in git.
+
+Tool usage instructions from the MCP package:
+
+@../mcp/godot-mcp-pro-v1.17.1/instructions/CLAUDE.md
 
 ## Build and test
 
