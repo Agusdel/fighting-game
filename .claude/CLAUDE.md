@@ -56,6 +56,8 @@ Only the .NET 10 runtime is installed. The test project targets `net8.0` and use
 
 - Follow the design in `project.md` (repository root). It is the source of truth for the architecture and the milestones.
 - When a design decision changes or is added, update `project.md` (and its Decision Log) in the same change.
+- At the start of a session, read section 0 ("Current Status and Next Steps") of `project.md`. Confirm the next step with the user before you write code.
+- At the end of a session, update section 0.
 
 ## Determinism rules
 

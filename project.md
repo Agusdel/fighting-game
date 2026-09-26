@@ -8,6 +8,22 @@ Status: **Draft**. This document is the source of truth for the design. Update i
 
 ---
 
+## 0. Current Status and Next Steps
+
+Update this section at the end of each work session.
+
+- **Done:** M0 (skeleton), M1 (core math), M2 simulation side (`WorldState`, `Simulator.Tick`, movement, double jump, platforms, tests).
+- **Git:** M0 and M1 are committed. The M2 simulation side (and the `InputFlags` rename) is not committed yet.
+- **Next:** M2 Godot side. The work stops after each step for review.
+  1. `FixedExtensions` in `project/src/` (`Fixed.ToFloat()`, `FixedVector2.ToVector2()`, for display only).
+  2. `MatchRunner` (Node): owns `WorldState` and `GameData`, 60 Hz accumulator (section 9.6), keyboard input to `InputFlags`, one `Simulator.Tick` per tick.
+  3. `StageView` (draws solids and platforms as rectangles) and `FighterView` (draws the collision box of one fighter).
+  4. `Match.tscn`: it already exists (created by the user), with one root `Node2D` named `Game`. `Stage01.tscn` and `MainMenu.tscn` also exist (empty). Claude gives the node changes and the user makes them in the editor (Claude does not edit `.tscn` files).
+  5. Run it, check the movement on screen, tune `DefaultGameData` values.
+- **Later:** make fighter behavior data-driven (see section 6).
+
+---
+
 ## 1. Requirements
 
 ### 1.1 Game
@@ -276,6 +292,8 @@ Rules:
 |---|---|---|---|
 | — | None at this time | | |
 
+Planned rework (before or during M6): make fighter behavior data-driven. The M2 code uses a hard-coded `switch` on `FighterAction`. The goal is to define actions/states, animations, attack hitboxes, movement values, and input rules as data, so a new move does not need new simulation code.
+
 ---
 
 ## 7. Milestones (Draft)
@@ -286,7 +304,7 @@ Each milestone must be runnable and testable before the next one starts.
 |---|---|---|
 | M0 | Project skeleton | Folder layout, test project, build command work. **Done 2026-09-25** |
 | M1 | Core math | `Fixed`, `FixedVector2`, `FixedAABB`, `FixedRng`, hash; unit tests pass. **Done 2026-09-25** |
-| M2 | Simulation core | One fighter moves, jumps, falls, collides with a hard-coded stage. State save/restore/hash works. Boxes drawn as rectangles |
+| M2 | Simulation core | One fighter moves, jumps, falls, collides with a hard-coded stage. State save/restore/hash works. Boxes drawn as rectangles. **Simulation side done 2026-09-25**; Godot side pending |
 | M3 | Editor authoring | Stage authored in `Stage01.tscn` and converted to `StageData` |
 | M4 | Determinism tools | Replay recording, replay viewer with slider, hash check, SyncTest mode |
 | M5 | Local multiplayer | Main menu (local), lobby with device assignment, 2–4 local players |
@@ -350,7 +368,7 @@ Rounding rules (tested):
 | `Grounded` | `bool` | |
 | `DropThroughTimer` | `int` | Frames the fighter ignores one-way platforms |
 | `JumpsLeft` | `byte` | Double jump. Reset to 2 on landing (ground jump + one air jump) |
-| `PrevInput` | `InputBits` | Previous frame input, to detect "button pressed this frame" |
+| `PrevInput` | `InputFlags` | Previous frame input, to detect "button pressed this frame" |
 
 `PrevInput` is part of the state. Rule: anything the simulation remembers between frames must be in `WorldState`.
 
@@ -358,26 +376,39 @@ Rounding rules (tested):
 
 - `GameData` (class, read-only after load): `StageData`, `FighterStats`, later `MoveData`.
 - `StageData`: `FixedAABB[] Solids`, `FixedAABB[] Platforms`, `FixedVector2[] SpawnPoints`. The array order is the order of the nodes in the scene tree, so it is the same on every machine.
-- `FighterStats`: `WalkSpeed`, `AirSpeed`, `AirAcceleration`, `Gravity`, `MaxFallSpeed`, `JumpVelocity`, `JumpSquatFrames`, `CollisionBoxSize`.
-- In M2 the stage is hard-coded in C#. In M3 it comes from `Stage01.tscn`.
+- `FighterStats`: `CollisionBoxSize`, `WalkSpeed`, `AirSpeed`, `AirAcceleration`, `AirFriction`, `Gravity`, `MaxFallSpeed`, `JumpVelocity`, `JumpSquatFrames`, `LandFrames`, `MaxJumps`, `DropThroughFrames`.
+- `StageData` also computes `Bounds` (the box around all solids and platforms). Spawn facing: toward the center of `Bounds`.
+- In M2 the stage is hard-coded in C# (`DefaultGameData`): a closed 1152 x 648 box (the default Godot window size), floor top at y = 600, one platform x 426–726 at y = 420. In M3 it comes from `Stage01.tscn`.
+- Default fighter: box 48 x 96, walk 5, air speed 4.5, gravity 0.6, max fall 12, jump velocity -13 (about 140 px high), jump squat 3 frames, land 3 frames.
 
 ### 9.5 Tick (M2)
 
 ```csharp
-public static class Simulation
+public static class Simulator
 {
     public static void Tick(ref WorldState state, in FrameInput input, GameData data);
 }
 ```
 
-- `FrameInput` = inline array of 4 `InputBits` (`ushort` flags).
+- The class is `Simulator`, not `Simulation`, because the namespace is `FightingGame.Simulation`.
+
+- `FrameInput` = inline array of 4 `InputFlags` (`ushort` flags).
 - Phases as in section 3.4. In M2 only phases 1, 2, and 6 exist.
 - Phase 2 movement against terrain, for each fighter:
   1. Move on X. Find all solids that the box sweep touches. Stop at the nearest one.
   2. Move on Y. Find all solids that the sweep touches. Stop at the nearest one. For one-way platforms: block only if the fighter moves down, the feet were at or above the platform top on the previous position, and `DropThroughTimer == 0`.
   - Drop through: Down + Jump pressed while standing on a platform sets `DropThroughTimer` (and does not jump).
-  3. Set `Grounded` if the fighter stands on a solid or a platform.
+  3. `Grounded` = a downward move was blocked.
 - Sweeps check every box, and the result is the minimum distance. So the box order does not change the result.
+- Gravity is applied every frame, also on the ground. The downward sweep stops it and sets `Grounded`. So walking off an edge needs no special case.
+- `ActionFrame` is incremented at the start of phase 1. A new action starts at `ActionFrame = 0`.
+- Action rules:
+  - `Idle`/`Walk`: Jump pressed → `JumpSquat` (or drop-through with Down on a platform). Walk sets the speed directly (no ground acceleration).
+  - `JumpSquat`: after `JumpSquatFrames` → jump.
+  - `Airborne`: air control with acceleration and friction. Jump pressed with `JumpsLeft > 0` → air jump. Facing does not change in the air.
+  - Landing → `Land` (no input for `LandFrames`), and `JumpsLeft = MaxJumps`.
+  - Leaving the ground without a jump (walk off, drop-through) → `Airborne` with `JumpsLeft = MaxJumps - 1`.
+- `MatchPhase` has only `Fighting` in M2.
 
 ### 9.6 Game loop (M2, Godot side)
 
@@ -415,4 +446,5 @@ public static class Simulation
 | 2026-09-25 | Double jump: yes. Platform drop-through: Down + Jump |
 | 2026-09-25 | Section 9 (M0–M2 detailed design) agreed |
 | 2026-09-25 | Renamed `FixedAabb` to `FixedAABB` and `Rng` to `FixedRng` |
+| 2026-09-26 | Renamed `InputBits` to `InputFlags` |
 | 2026-09-25 | Build with scripts in `scripts/` (dotnet build + Godot headless build). No editor MCP for now |
