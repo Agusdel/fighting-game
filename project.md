@@ -18,9 +18,10 @@ Update this section at the end of each work session.
   1. `FixedExtensions` in `project/src/` (`Fixed.ToFloat()`, `FixedVector2.ToVector2()`, for display only).
   2. `MatchRunner` (Node): owns `WorldState` and `GameData`, 60 Hz accumulator (section 9.6), keyboard input to `InputFlags`, one `Simulator.Tick` per tick.
   3. `StageView` (draws solids and platforms as rectangles) and `FighterView` (draws the collision box of one fighter).
-  4. `Match.tscn`: it already exists (created by the user), with one root `Node2D` named `Game`. `Stage01.tscn` and `MainMenu.tscn` also exist (empty). Claude gives the node changes and the user makes them in the editor (Claude does not edit `.tscn` files).
+  4. `Match.tscn`: it already exists (created by the user), with one root `Node2D` named `Game`. `Stage01.tscn` and `MainMenu.tscn` also exist (empty). Claude makes the node changes through the Godot MCP (Claude does not edit `.tscn` files as text).
   5. Run it, check the movement on screen, tune `DefaultGameData` values.
 - **Later:** make fighter behavior data-driven (see section 6).
+- **Before the first public build:** create `scripts/export.sh` (see section 10).
 
 ---
 
@@ -448,3 +449,43 @@ public static class Simulator
 | 2026-09-25 | Renamed `FixedAabb` to `FixedAABB` and `Rng` to `FixedRng` |
 | 2026-09-26 | Renamed `InputBits` to `InputFlags` |
 | 2026-09-25 | Build with scripts in `scripts/` (dotnet build + Godot headless build). No editor MCP for now |
+| 2026-09-26 | Godot MCP Pro added (`mcp/` server, `project/addons/godot_mcp/` plugin). Claude edits scenes and Godot resources only through the MCP. This replaces "No editor MCP for now" |
+| 2026-09-26 | Builds that leave the developer's computer are made only with `scripts/export.sh`, which removes the MCP addon and autoloads and checks the result (section 10) |
+
+---
+
+## 10. Task: Release export without the MCP
+
+Status: **Not started.** Do this before the first build that leaves the developer's computer (itch.io, Steam, or a build for friends).
+
+### Goal
+
+A release build must not contain any part of the Godot MCP: no `addons/godot_mcp/` files, no `MCP*` autoloads, and no plugin entry. The developer must not need to remember manual steps.
+
+### Why a manual export is not safe
+
+- The plugin adds three autoloads (`MCPScreenshot`, `MCPInputService`, `MCPGameInspector`) to `project.godot` when the editor starts. It removes them when the editor closes. An export from the open editor always includes them.
+- If the editor crashes, the autoloads stay in `project.godot`.
+- An export preset filter can exclude `addons/godot_mcp/*`, but not the autoloads. The game then shows "Can't autoload" errors at start.
+- Other AI files (`mcp/`, `.claude/`, `.mcp.json`) are outside `project/`, so Godot never exports them. The C# assemblies do not reference the addon.
+
+### Task: create `scripts/export.sh`
+
+Usage: `scripts/export.sh <preset> <output path>`. The script does these steps:
+
+1. Copy the committed `project/` folder (`git archive HEAD`) to a temporary folder. Local and untracked files are not included.
+2. Delete `addons/godot_mcp/` from the copy.
+3. In the copy of `project.godot`, remove the `MCP*` autoload lines and the `godot_mcp` entry in `[editor_plugins]`. This changes only the temporary copy.
+4. Run `godot --headless --export-release <preset> <output path>` in the copy. Use `scripts/godot-path.sh` to find Godot. The plugin does nothing in a command-line export, so it cannot add the autoloads again.
+5. Check the exported files (`.pck`, executable, and the .NET data folder). Search for `godot_mcp`, `MCPScreenshot`, `MCPInputService`, and `MCPGameInspector`. If one is found, delete the output and stop with an error.
+6. Delete the temporary folder.
+
+Also:
+
+- Add `addons/godot_mcp/*` to the exclude filter of each export preset. This is a second protection for exports from the editor.
+- Test the script with a real export preset. Start the exported game and confirm that there are no autoload errors.
+- Add `export.sh` to the `scripts/` list in `CLAUDE.md` and in section 4.
+
+### Rule
+
+Use `scripts/export.sh` for all builds that leave the developer's computer. Use the editor Export button only for local tests.
