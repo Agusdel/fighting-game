@@ -226,7 +226,7 @@ public class SimulatorTests
     public void InactiveFightersDoNotChange()
     {
         var world = new TestWorld(playerCount: 1);
-        FighterState before = world.Fighter(3);
+        FighterData before = world.Fighter(3);
         world.Run(60, InputFlags.Right);
 
         var hasherBefore = new StateHasher();
@@ -239,8 +239,8 @@ public class SimulatorTests
     [Fact]
     public void PlayerSlotOrderDoesNotChangeTheResult()
     {
-        InputFlags[] inputA = WorldStateTests.RandomInputs(seed: 10, count: 600);
-        InputFlags[] inputB = WorldStateTests.RandomInputs(seed: 20, count: 600);
+        InputFlags[] inputA = WorldDataTests.RandomInputs(seed: 10, count: 600);
+        InputFlags[] inputB = WorldDataTests.RandomInputs(seed: 20, count: 600);
 
         // World 1: fighter A in slot 0, fighter B in slot 1.
         var world1 = new TestWorld(playerCount: 2);
@@ -258,7 +258,7 @@ public class SimulatorTests
         }
     }
 
-    private static ulong HashOf(in FighterState fighter)
+    private static ulong HashOf(in FighterData fighter)
     {
         var hasher = new StateHasher();
         fighter.Hash(ref hasher);

@@ -34,15 +34,18 @@ public static class DefaultGameData
             Box(426, 420, 726, 436),
         };
 
-        FixedVector2[] spawnPoints =
+        // One single spawn position on the platform. Two pairs on the floor.
+        FixedVector2[] singleSpawnPositions =
         {
-            new(250, 600),
-            new(902, 600),
-            new(450, 600),
-            new(702, 600),
+            new(576, 420),
+        };
+        SpawnPositionPair[] spawnPositionPairs =
+        {
+            new(new FixedVector2(250, 600), new FixedVector2(902, 600)),
+            new(new FixedVector2(450, 600), new FixedVector2(702, 600)),
         };
 
-        return new StageData(solids, platforms, spawnPoints);
+        return new StageData(solids, platforms, singleSpawnPositions, spawnPositionPairs);
     }
 
     public static FighterStats CreateFighterStats() => new()

@@ -36,14 +36,14 @@ public partial class MatchRunner : Node2D
     private readonly KeyboardInputMap[] _keyboardMaps = { KeyboardInputMap.Wasd, KeyboardInputMap.Arrows };
 
     private GameData _data = null!;
-    private WorldState _state;
+    private WorldData _world;
     private FighterView[] _fighterViews = System.Array.Empty<FighterView>();
     private double _accumulator;
 
     public override void _Ready()
     {
         _data = DefaultGameData.Create();
-        _state = WorldState.Create(_data, PlayerCount, Seed);
+        _world = WorldData.Create(_data, PlayerCount, Seed);
 
         StageView?.SetStage(_data.Stage);
 
@@ -68,7 +68,7 @@ public partial class MatchRunner : Node2D
         {
             _accumulator -= TickDuration;
             ticks++;
-            Simulator.Tick(ref _state, ReadInput(), _data);
+            Simulator.Tick(ref _world, ReadInput(), _data);
         }
 
         if (ticks == MaxTicksPerFrame)
@@ -96,14 +96,14 @@ public partial class MatchRunner : Node2D
     {
         for (int i = 0; i < _fighterViews.Length; i++)
         {
-            _fighterViews[i].Refresh(_state.Fighters[i], _data.Fighter);
+            _fighterViews[i].Refresh(_world.Fighters[i], _data.Fighter);
         }
 
         if (DebugLabel != null)
         {
-            ref readonly FighterState f = ref _state.Fighters[0];
+            ref readonly FighterData f = ref _world.Fighters[0];
             DebugLabel.Text =
-                $"Frame {_state.Frame}   Hash {_state.ComputeHash():X16}\n" +
+                $"Frame {_world.Frame}   Hash {_world.ComputeHash():X16}\n" +
                 $"P1 {f.Action} ({f.ActionFrame})  Pos {f.Position}  Vel {f.Velocity}\n" +
                 $"Grounded {f.Grounded}  Jumps {f.JumpsLeft}  Drop {f.DropThroughTimer}";
         }

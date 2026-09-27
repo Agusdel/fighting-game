@@ -18,7 +18,7 @@ public enum FighterAction : byte
 /// The rollback state of one fighter. Plain value data only: it is copied for snapshots and hashed field by field.
 /// Everything the simulation remembers about a fighter between frames must be in this struct.
 /// </summary>
-public struct FighterState
+public struct FighterData
 {
     /// <summary>True if this player slot is used in the match.</summary>
     public bool Active;
@@ -79,5 +79,5 @@ public struct FighterState
 [InlineArray(GameConstants.MaxPlayers)]
 public struct FighterArray
 {
-    private FighterState _element0;
+    private FighterData _element0;
 }

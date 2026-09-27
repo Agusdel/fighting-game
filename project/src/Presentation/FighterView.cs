@@ -16,7 +16,7 @@ public partial class FighterView : Node2D
     private int _facing = 1;
     private bool _grounded;
 
-    public void Refresh(in FighterState fighter, FighterStats stats)
+    public void Refresh(in FighterData fighter, FighterStats stats)
     {
         Visible = fighter.Active;
         Position = fighter.Position.ToVector2();

@@ -17,11 +17,11 @@ namespace FightingGame.Simulation;
 /// </remarks>
 public static class Simulator
 {
-    public static void Tick(ref WorldState state, in FrameInput input, GameData data)
+    public static void Tick(ref WorldData state, in FrameInput input, GameData data)
     {
         for (int i = 0; i < GameConstants.MaxPlayers; i++)
         {
-            ref FighterState fighter = ref state.Fighters[i];
+            ref FighterData fighter = ref state.Fighters[i];
             if (fighter.Active)
             {
                 UpdateIntent(ref fighter, input[i], data);
@@ -30,7 +30,7 @@ public static class Simulator
 
         for (int i = 0; i < GameConstants.MaxPlayers; i++)
         {
-            ref FighterState fighter = ref state.Fighters[i];
+            ref FighterData fighter = ref state.Fighters[i];
             if (fighter.Active)
             {
                 MoveAndCollide(ref fighter, data);
@@ -43,7 +43,7 @@ public static class Simulator
 
     // Phase 1: intent
 
-    private static void UpdateIntent(ref FighterState fighter, InputFlags input, GameData data)
+    private static void UpdateIntent(ref FighterData fighter, InputFlags input, GameData data)
     {
         FighterStats stats = data.Fighter;
         InputFlags pressed = input & ~fighter.PrevInput;
@@ -104,7 +104,7 @@ public static class Simulator
         fighter.Velocity = fighter.Velocity.WithY(Fixed.Min(fighter.Velocity.Y + stats.Gravity, stats.MaxFallSpeed));
     }
 
-    private static void Walk(ref FighterState fighter, int direction, FighterStats stats)
+    private static void Walk(ref FighterData fighter, int direction, FighterStats stats)
     {
         if (direction == 0)
         {
@@ -118,14 +118,14 @@ public static class Simulator
         fighter.Velocity = fighter.Velocity.WithX(stats.WalkSpeed * direction);
     }
 
-    private static void Jump(ref FighterState fighter, FighterStats stats)
+    private static void Jump(ref FighterData fighter, FighterStats stats)
     {
         fighter.Velocity = fighter.Velocity.WithY(stats.JumpVelocity);
         fighter.JumpsLeft--;
         fighter.SetAction(FighterAction.Airborne);
     }
 
-    private static void AirControl(ref FighterState fighter, int direction, FighterStats stats)
+    private static void AirControl(ref FighterData fighter, int direction, FighterStats stats)
     {
         Fixed vx = fighter.Velocity.X;
         if (direction != 0)
@@ -145,7 +145,7 @@ public static class Simulator
 
     // Phase 2: movement and stage collision
 
-    private static void MoveAndCollide(ref FighterState fighter, GameData data)
+    private static void MoveAndCollide(ref FighterData fighter, GameData data)
     {
         FighterStats stats = data.Fighter;
         StageData stage = data.Stage;
@@ -174,7 +174,7 @@ public static class Simulator
         UpdateGroundedAction(ref fighter, stats);
     }
 
-    private static void UpdateGroundedAction(ref FighterState fighter, FighterStats stats)
+    private static void UpdateGroundedAction(ref FighterData fighter, FighterStats stats)
     {
         bool groundAction = fighter.Action != FighterAction.Airborne;
         if (fighter.Grounded && !groundAction)
@@ -257,7 +257,7 @@ public static class Simulator
         return dy;
     }
 
-    private static bool IsOnPlatform(in FighterState fighter, GameData data)
+    private static bool IsOnPlatform(in FighterData fighter, GameData data)
     {
         if (!fighter.Grounded)
         {

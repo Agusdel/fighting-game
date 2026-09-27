@@ -13,34 +13,64 @@ public sealed class GameData
     public required FighterStats Fighter { get; init; }
 }
 
+/// <summary>Two spawn positions (feet) at opposite places on the stage. They do not need to be exact mirrors.</summary>
+public readonly struct SpawnPositionPair
+{
+    public readonly FixedVector2 A;
+    public readonly FixedVector2 B;
+
+    public SpawnPositionPair(FixedVector2 a, FixedVector2 b)
+    {
+        A = a;
+        B = b;
+    }
+}
+
 /// <summary>
-/// Stage geometry. The array order must be the same on every machine (for example, the scene tree order).
-/// The collision code does not depend on the order, but a fixed order keeps the data identical everywhere.
+/// Stage geometry and spawn positions. The array order must be the same on every machine (for example, the scene tree order).
+/// The collision code does not depend on the order, but the spawn position selection does, and <see cref="ComputeHash"/> does too.
 /// </summary>
 public sealed class StageData
 {
+    /// <summary>The minimum number of spawn position pairs: enough pairs for <see cref="GameConstants.MaxPlayers"/> players.</summary>
+    public const int MinSpawnPositionPairs = GameConstants.MaxPlayers / 2;
+
     /// <summary>Boxes that block from all sides (floor, ceiling, walls).</summary>
     public FixedAABB[] Solids { get; }
 
     /// <summary>One-way platforms. They block only a fighter that falls onto their top edge.</summary>
     public FixedAABB[] Platforms { get; }
 
-    /// <summary>Start positions (feet), one for each player slot.</summary>
-    public FixedVector2[] SpawnPoints { get; }
+    /// <summary>Spawn positions (feet) that are not in a pair. When the number of players is odd, a match uses one of them, chosen at random.</summary>
+    public FixedVector2[] SingleSpawnPositions { get; }
+
+    /// <summary>Pairs of opposite spawn positions. A match uses (player count / 2) random pairs.</summary>
+    public SpawnPositionPair[] SpawnPositionPairs { get; }
 
     /// <summary>The box that contains all solids and platforms.</summary>
     public FixedAABB Bounds { get; }
 
-    public StageData(FixedAABB[] solids, FixedAABB[] platforms, FixedVector2[] spawnPoints)
+    public StageData(FixedAABB[] solids, FixedAABB[] platforms, FixedVector2[] singleSpawnPositions, SpawnPositionPair[] spawnPositionPairs)
     {
         if (solids.Length == 0)
         {
             throw new ArgumentException("A stage needs at least one solid.", nameof(solids));
         }
+        if (singleSpawnPositions.Length == 0)
+        {
+            throw new ArgumentException("A stage needs at least one single spawn position (for an odd number of players).", nameof(singleSpawnPositions));
+        }
+        if (spawnPositionPairs.Length < MinSpawnPositionPairs)
+        {
+            throw new ArgumentException(
+                $"A stage needs at least {MinSpawnPositionPairs} spawn position pairs, but it has {spawnPositionPairs.Length}.",
+                nameof(spawnPositionPairs));
+        }
 
         Solids = solids;
         Platforms = platforms;
-        SpawnPoints = spawnPoints;
+        SingleSpawnPositions = singleSpawnPositions;
+        SpawnPositionPairs = spawnPositionPairs;
 
         FixedVector2 min = solids[0].Min;
         FixedVector2 max = solids[0].Max;
@@ -53,6 +83,37 @@ public sealed class StageData
             (min, max) = Grow(min, max, box);
         }
         Bounds = new FixedAABB(min, max);
+    }
+
+    /// <summary>
+    /// Hash of all stage data. Two machines with the same hash have the same stage.
+    /// The array lengths are included, so data cannot move from one array to the next without a change.
+    /// </summary>
+    public ulong ComputeHash()
+    {
+        var hasher = new StateHasher();
+        hasher.Add(Solids.Length);
+        foreach (FixedAABB box in Solids)
+        {
+            hasher.Add(box);
+        }
+        hasher.Add(Platforms.Length);
+        foreach (FixedAABB box in Platforms)
+        {
+            hasher.Add(box);
+        }
+        hasher.Add(SingleSpawnPositions.Length);
+        foreach (FixedVector2 position in SingleSpawnPositions)
+        {
+            hasher.Add(position);
+        }
+        hasher.Add(SpawnPositionPairs.Length);
+        foreach (SpawnPositionPair pair in SpawnPositionPairs)
+        {
+            hasher.Add(pair.A);
+            hasher.Add(pair.B);
+        }
+        return hasher.Value;
     }
 
     private static (FixedVector2, FixedVector2) Grow(FixedVector2 min, FixedVector2 max, FixedAABB box) =>

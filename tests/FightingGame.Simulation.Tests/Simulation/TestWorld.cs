@@ -7,14 +7,32 @@ namespace FightingGame.Simulation.Tests.Simulation;
 internal sealed class TestWorld
 {
     public readonly GameData Data = DefaultGameData.Create();
-    public WorldState State;
+    public WorldData State;
+
+    /// <summary>
+    /// Fixed start positions (on the floor) for slots 0 to 3. Tests use them instead of the random spawn position selection,
+    /// so a change in the spawn position rules does not change the movement tests.
+    /// </summary>
+    public static readonly FixedVector2[] StartPositions =
+    {
+        new(250, 600),
+        new(902, 600),
+        new(450, 600),
+        new(702, 600),
+    };
 
     public TestWorld(int playerCount = 1, ulong seed = 1)
     {
-        State = WorldState.Create(Data, playerCount, seed);
+        State = WorldData.Create(Data, playerCount, seed);
+        for (int i = 0; i < playerCount; i++)
+        {
+            ref FighterData fighter = ref State.Fighters[i];
+            fighter.Position = StartPositions[i];
+            fighter.Facing = (sbyte)(i % 2 == 0 ? 1 : -1);
+        }
     }
 
-    public ref FighterState Fighter(int slot = 0) => ref State.Fighters[slot];
+    public ref FighterData Fighter(int slot = 0) => ref State.Fighters[slot];
 
     /// <summary>Runs <paramref name="frames"/> ticks with the same input for player 0 and no input for the others.</summary>
     public void Run(int frames, InputFlags player0 = InputFlags.None)
@@ -50,7 +68,7 @@ internal sealed class TestWorld
     /// <summary>Places player 0 in the air at <paramref name="feet"/> with the given velocity.</summary>
     public void PlaceInAir(FixedVector2 feet, FixedVector2 velocity)
     {
-        ref FighterState fighter = ref Fighter();
+        ref FighterData fighter = ref Fighter();
         fighter.Position = feet;
         fighter.Velocity = velocity;
         fighter.Grounded = false;

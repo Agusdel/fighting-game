@@ -9,28 +9,51 @@ using Xunit;
 
 namespace FightingGame.Simulation.Tests.Simulation;
 
-public class WorldStateTests
+public class WorldDataTests
 {
     [Fact]
     public void CreateActivatesOnlyTheRequestedSlots()
     {
         GameData data = DefaultGameData.Create();
-        WorldState state = WorldState.Create(data, 2, 1);
+        WorldData state = WorldData.Create(data, 2, 1);
 
         Assert.True(state.Fighters[0].Active);
         Assert.True(state.Fighters[1].Active);
         Assert.False(state.Fighters[2].Active);
         Assert.False(state.Fighters[3].Active);
-        Assert.Equal(data.Stage.SpawnPoints[0], state.Fighters[0].Position);
-        Assert.Equal(data.Stage.SpawnPoints[1], state.Fighters[1].Position);
     }
 
     [Fact]
     public void CreateFacesTheStageCenter()
     {
-        WorldState state = WorldState.Create(DefaultGameData.Create(), 2, 1);
-        Assert.Equal(1, state.Fighters[0].Facing);   // Left spawn
-        Assert.Equal(-1, state.Fighters[1].Facing);  // Right spawn
+        GameData data = DefaultGameData.Create();
+        Fixed centerX = (data.Stage.Bounds.Min.X + data.Stage.Bounds.Max.X) * Fixed.Half;
+        for (ulong seed = 0; seed < 20; seed++)
+        {
+            WorldData state = WorldData.Create(data, GameConstants.MaxPlayers, seed);
+            for (int i = 0; i < GameConstants.MaxPlayers; i++)
+            {
+                FighterData fighter = state.Fighters[i];
+                Assert.Equal(fighter.Position.X <= centerX ? 1 : -1, fighter.Facing);
+            }
+        }
+    }
+
+    [Fact]
+    public void CreateUsesTheSpawnPositionSelection()
+    {
+        GameData data = DefaultGameData.Create();
+        WorldData state = WorldData.Create(data, 3, 7);
+
+        var rng = new FixedRng(7);
+        var expected = new FixedVector2[GameConstants.MaxPlayers];
+        SpawnPositionSelector.Select(data.Stage, 3, ref rng, expected);
+
+        for (int i = 0; i < 3; i++)
+        {
+            Assert.Equal(expected[i], state.Fighters[i].Position);
+        }
+        Assert.Equal(rng.State, state.Rng.State);
     }
 
     [Theory]
@@ -38,25 +61,25 @@ public class WorldStateTests
     [InlineData(GameConstants.MaxPlayers + 1)]
     public void CreateRejectsInvalidPlayerCount(int playerCount)
     {
-        Assert.Throws<ArgumentOutOfRangeException>(() => WorldState.Create(DefaultGameData.Create(), playerCount, 1));
+        Assert.Throws<ArgumentOutOfRangeException>(() => WorldData.Create(DefaultGameData.Create(), playerCount, 1));
     }
 
     /// <summary>
-    /// Changes each primitive field of WorldState (also the fields inside nested structs) one at a time,
+    /// Changes each primitive field of WorldData (also the fields inside nested structs) one at a time,
     /// and checks that the hash changes. This test fails if a field is missing from a Hash method.
     /// </summary>
     [Fact]
     public void EveryFieldChangesTheHash()
     {
-        object baseline = default(WorldState);
-        ulong baselineHash = ((WorldState)baseline).ComputeHash();
+        object baseline = default(WorldData);
+        ulong baselineHash = ((WorldData)baseline).ComputeHash();
 
-        List<(string Path, object State)> mutations = Mutations(baseline, typeof(WorldState), "WorldState").ToList();
+        List<(string Path, object State)> mutations = Mutations(baseline, typeof(WorldData), "WorldData").ToList();
         Assert.NotEmpty(mutations);
 
         foreach ((string path, object mutated) in mutations)
         {
-            ulong hash = ((WorldState)mutated).ComputeHash();
+            ulong hash = ((WorldData)mutated).ComputeHash();
             Assert.True(hash != baselineHash, $"Field {path} does not change the hash.");
         }
     }
@@ -65,10 +88,10 @@ public class WorldStateTests
     public void EveryFighterSlotChangesTheHash()
     {
         // The reflection test sees only the first element of the inline array. This test covers the other slots.
-        WorldState baseline = default;
+        WorldData baseline = default;
         for (int i = 0; i < GameConstants.MaxPlayers; i++)
         {
-            WorldState changed = default;
+            WorldData changed = default;
             changed.Fighters[i].ActionFrame = 1;
             Assert.NotEqual(baseline.ComputeHash(), changed.ComputeHash());
         }
@@ -78,11 +101,11 @@ public class WorldStateTests
     public void SnapshotCopyIsIndependent()
     {
         var world = new TestWorld();
-        WorldState snapshot = world.State;
+        WorldData snapshot = world.State;
         world.Run(10, InputFlags.Right);
         Assert.NotEqual(snapshot.ComputeHash(), world.State.ComputeHash());
         Assert.Equal(0, snapshot.Frame);
-        Assert.Equal(world.Data.Stage.SpawnPoints[0], snapshot.Fighters[0].Position);
+        Assert.Equal(TestWorld.StartPositions[0], snapshot.Fighters[0].Position);
     }
 
     [Fact]
@@ -92,7 +115,7 @@ public class WorldStateTests
 
         var world = new TestWorld(playerCount: 1);
         world.Run(100, InputFlags.Right);
-        WorldState snapshot = world.State;
+        WorldData snapshot = world.State;
 
         foreach (InputFlags input in inputs)
         {

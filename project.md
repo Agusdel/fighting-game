@@ -14,7 +14,7 @@ Update this section at the end of each work session.
 
 - **Done:** M0, M1, M2 (simulation and Godot side). `Match.tscn` runs one fighter on the default stage with placeholder rectangles.
 - **Git:** M2 Godot side is not committed yet.
-- **Next:** the user plays `Match.tscn` (F6 in the editor) and checks the movement feel. Then tune `DefaultGameData` values if necessary. After that, M3 (stage authoring in the editor).
+- **Next:** M3 (stage authoring), design agreed in section 11. Step 1 (simulation side) is done. Next is step 2 (authoring scripts and `StageConverter`). The movement feel is OK for now (tune later).
 - **Later:** make fighter behavior data-driven (see section 6).
 - **Before the first public build:** create `scripts/export.sh` (see section 10).
 
@@ -99,7 +99,7 @@ Update this section at the end of each work session.
 |  RollbackSession, InputQueue, SyncTest, ReplayRecorder       |
 +----------------------------+---------------------------------+
 | Simulation (pure C#)       | Networking (transport)          |
-|  WorldState, Tick, Physics |  INetworkTransport              |
+|  WorldData, Tick, Physics  |  INetworkTransport              |
 |  Combat, FrameData         |  Loopback / ENet / Steam        |
 +----------------------------+---------------------------------+
 | Core (pure C#): Fixed, FixedVector2, FixedAABB, FixedRng, Hash |
@@ -124,12 +124,12 @@ Core, Simulation, Session, and the Godot-free part of Networking are in a separa
 
 ### 3.3 World state
 
-- `WorldState` is a struct (or a class that holds only fixed-size struct arrays) with:
+- `WorldData` is a struct (or a class that holds only fixed-size struct arrays) with:
   - `Frame` (int)
   - `Rng` (`FixedRng`, deterministic PRNG)
   - `MatchPhase` and phase timer (for example: countdown, fighting, restarting)
-  - `FighterState[MaxPlayers]`
-- `FighterState` (unmanaged struct):
+  - `FighterData[MaxPlayers]`
+- `FighterData` (unmanaged struct):
   - Position, Velocity (`FixedVector2`)
   - Facing (int: -1 or +1). Set by the last horizontal move input (not by the opponent position)
   - Health (int)
@@ -175,7 +175,7 @@ Fighters do not collide with each other (no pushboxes). They pass through each o
 
 ### 3.7 Editor authoring and conversion
 
-- Stage and hitboxes are authored in the Godot editor with custom `[Tool]` nodes (for example `TerrainBoxAuthoring`, `PlatformAuthoring`, `SpawnPointAuthoring`). The nodes draw their boxes in the editor.
+- Stage and hitboxes are authored in the Godot editor with custom `[Tool]` nodes (for example `TerrainBoxAuthoring`, `PlatformAuthoring`, `SpawnPositionAuthoring`). The nodes draw their boxes in the editor. (Final names in section 11.)
 - Authored values must be **integer pixels**. The converter rounds with a fixed rule and reports an error if a value is not an integer. This removes all float ambiguity.
 - The converter produces static data (`StageData`, `MoveData`) with `Fixed` values. The simulation uses only this data.
 - The conversion runs at runtime when the stage loads (no bake step). Every machine converts the same integer values, so the result is the same.
@@ -251,7 +251,7 @@ public interface INetworkTransport
       .gdignore                     Godot editor ignores this folder
       FightingGame.Simulation.csproj
       Core/                         Fixed, FixedVector2, FixedAABB, FixedRng, Hash
-      Simulation/                   WorldState, Tick, physics, combat, static data types
+      Simulation/                   WorldData, Tick, physics, combat, static data types
       Session/                      Sessions, input queue, replay
       Networking/                   INetworkTransport, protocol, LoopbackTransport
     src/                            Godot C# code
@@ -276,7 +276,7 @@ Rules:
 | `MainMenu.tscn` | Play Local, Play Online (Host / Join), Replay Viewer, Quit |
 | `Lobby.tscn` | Player list, device assignment, Start (host), Back |
 | `Match.tscn` | Runs a session. Contains the stage view, fighter views, HUD |
-| `Stage01.tscn` | Stage authoring: terrain boxes, platform, spawn points |
+| `Stage01.tscn` | Stage authoring: terrain boxes, platform, spawn positions |
 | `Fighter.tscn` | Fighter view: sprite, debug box drawing |
 | `ReplayViewer.tscn` | Timeline slider, play/pause/step, hash check results |
 
@@ -343,15 +343,15 @@ Rounding rules (tested):
 
 ### 9.3 State layout (M2)
 
-- `WorldState` is **one unmanaged struct**. It contains `Frame`, `Rng` (`FixedRng`), `MatchPhase`, `PhaseTimer`, and `Fighters`.
-- `Fighters` is a fixed-size inline array of 4 `FighterState` (`[InlineArray(4)]`, available in .NET 8). There is no heap allocation.
-- Snapshot for rollback = struct copy (`WorldState copy = state;`). The ring buffer is `WorldState[]`. This is very fast.
+- `WorldData` is **one unmanaged struct**. It contains `Frame`, `Rng` (`FixedRng`), `MatchPhase`, `PhaseTimer`, and `Fighters`.
+- `Fighters` is a fixed-size inline array of 4 `FighterData` (`[InlineArray(4)]`, available in .NET 8). There is no heap allocation.
+- Snapshot for rollback = struct copy (`WorldData copy = state;`). The ring buffer is `WorldData[]`. This is very fast.
 - Hash = explicit, field by field. Each state struct has a method `void Hash(ref StateHasher h)`.
   - Reason: a raw memory hash also reads the struct padding bytes. Padding bytes can contain different values on different machines. An explicit hash does not read them.
   - The same field list is used for the state diff tool (M4).
-- Unit test: every field of `FighterState` changes the hash (this catches a field that was not added to `Hash`).
+- Unit test: every field of `FighterData` changes the hash (this catches a field that was not added to `Hash`).
 
-`FighterState` fields for M2:
+`FighterData` fields for M2:
 
 | Field | Type | Note |
 |---|---|---|
@@ -366,14 +366,14 @@ Rounding rules (tested):
 | `JumpsLeft` | `byte` | Double jump. Reset to 2 on landing (ground jump + one air jump) |
 | `PrevInput` | `InputFlags` | Previous frame input, to detect "button pressed this frame" |
 
-`PrevInput` is part of the state. Rule: anything the simulation remembers between frames must be in `WorldState`.
+`PrevInput` is part of the state. Rule: anything the simulation remembers between frames must be in `WorldData`.
 
 ### 9.4 Static data (M2)
 
 - `GameData` (class, read-only after load): `StageData`, `FighterStats`, later `MoveData`.
-- `StageData`: `FixedAABB[] Solids`, `FixedAABB[] Platforms`, `FixedVector2[] SpawnPoints`. The array order is the order of the nodes in the scene tree, so it is the same on every machine.
+- `StageData`: `FixedAABB[] Solids`, `FixedAABB[] Platforms`, `FixedVector2[] SpawnPoints`. The array order is the order of the nodes in the scene tree, so it is the same on every machine. (M3 replaced `SpawnPoints` with `SingleSpawnPositions` and `SpawnPositionPairs`, see section 11.)
 - `FighterStats`: `CollisionBoxSize`, `WalkSpeed`, `AirSpeed`, `AirAcceleration`, `AirFriction`, `Gravity`, `MaxFallSpeed`, `JumpVelocity`, `JumpSquatFrames`, `LandFrames`, `MaxJumps`, `DropThroughFrames`.
-- `StageData` also computes `Bounds` (the box around all solids and platforms). Spawn facing: toward the center of `Bounds`.
+- `StageData` also computes `Bounds` (the box around all solids and platforms). Facing at the spawn position: toward the center of `Bounds`.
 - In M2 the stage is hard-coded in C# (`DefaultGameData`): a closed 1152 x 648 box (the default Godot window size), floor top at y = 600, one platform x 426–726 at y = 420. In M3 it comes from `Stage01.tscn`.
 - Default fighter: box 48 x 96, walk 5, air speed 4.5, gravity 0.6, max fall 12, jump velocity -13 (about 140 px high), jump squat 3 frames, land 3 frames.
 
@@ -382,7 +382,7 @@ Rounding rules (tested):
 ```csharp
 public static class Simulator
 {
-    public static void Tick(ref WorldState state, in FrameInput input, GameData data);
+    public static void Tick(ref WorldData state, in FrameInput input, GameData data);
 }
 ```
 
@@ -408,7 +408,7 @@ public static class Simulator
 
 ### 9.6 Game loop (M2, Godot side)
 
-- `MatchRunner` (Node2D, root of `Match.tscn`) owns `WorldState` and `GameData`. There is no session class yet: M2 calls `Simulator.Tick` directly. `LocalSession` comes with M4/M5.
+- `MatchRunner` (Node2D, root of `Match.tscn`) owns `WorldData` and `GameData`. There is no session class yet: M2 calls `Simulator.Tick` directly. `LocalSession` comes with M4/M5.
 - In `_Process(delta)`: add `delta` to an accumulator. While the accumulator ≥ 1/60 s: poll input, run one tick. Limit to a maximum number of ticks for each render frame.
 - The accumulator uses `double`. This is allowed, because it only decides **when** a tick runs, not **what** a tick does.
 - After the ticks of a render frame, `MatchRunner` calls `Refresh` on each view. The views do not read the state by themselves, so the `_Process` order does not matter.
@@ -452,6 +452,9 @@ public static class Simulator
 | 2026-09-25 | Build with scripts in `scripts/` (dotnet build + Godot headless build). No editor MCP for now |
 | 2026-09-26 | Godot MCP Pro added (`mcp/` server, `project/addons/godot_mcp/` plugin). Claude edits scenes and Godot resources only through the MCP. This replaces "No editor MCP for now" |
 | 2026-09-26 | Builds that leave the developer's computer are made only with `scripts/export.sh`, which removes the MCP addon and autoloads and checks the result (section 10) |
+| 2026-09-27 | M3 stage authoring design agreed (section 11): component nodes on a snapping `StageNode` base, spawn position pairs + single spawn positions, stages inherit `StageBase.tscn` |
+| 2026-09-27 | Renames: `WorldState` → `WorldData`, `FighterState` → `FighterData` (Data suffix for simulation data types; `FighterStats`, `FrameInput`, and enums keep their names). `SpawnSelector` → `SpawnPositionSelector`, `SpawnPair` → `SpawnPositionPair`, authoring `SpawnPoint` → `SpawnPosition`. "Spawn position" is the term everywhere |
+| 2026-09-27 | A stage has one or more single spawn positions (`SingleSpawnPositions`); an odd player count uses one at random |
 
 ---
 
@@ -490,3 +493,136 @@ Also:
 ### Rule
 
 Use `scripts/export.sh` for all builds that leave the developer's computer. Use the editor Export button only for local tests.
+
+---
+
+## 11. Detailed Design: M3 Stage Authoring
+
+Status: **Agreed** (2026-09-27).
+
+### 11.1 Goals
+
+- Build stages in the Godot editor: place reusable pieces (platforms, blocks), add art, and add collision boxes and spawn positions.
+- See every collision box and spawn position in the editor while you edit.
+- Convert the authored nodes into `StageData` with exact, deterministic values.
+- Do not use Godot physics or Godot collision shapes.
+
+### 11.2 Scripts (components)
+
+Stage objects are built from small components. A structure combines one or more collision components with any number of visual nodes. More component types (for example slopes or circles) can come later.
+
+All scripts are C# `[Tool]` scripts in `project/src/Authoring/`. They have no static state (C# tool scripts must let the editor unload the assembly on rebuild).
+
+| Script | Base | Exports | Purpose and editor drawing |
+|---|---|---|---|
+| `StageNode` | `Node2D` | none | Base class for all authoring nodes. Snaps `Position` to whole pixels and resets rotation, scale, and skew (see 11.4). Not abstract: attach it directly to group nodes (for example `Structures`, `SpawnPositions`). |
+| `StageRoot` | `StageNode` | none | Root of a stage scene. Shows configuration warnings (see 11.6). |
+| `StageStructure` | `StageNode` | none | Groups the components and visuals of one object (a platform, a wall, a complex block). Draws nothing. |
+| `StageCollisionBox` | `StageNode` | `Vector2I Size`, `StageCollisionType Type` (`Solid`, `Platform`) | One collision box. Filled rectangle + outline, color by type (for example gray for `Solid`, orange for `Platform`). |
+| `SpawnPositionPair` | `StageNode` | none | Groups two spawn positions. A dashed line between its two `SpawnPosition` children. |
+| `SpawnPosition` | `StageNode` | none | One spawn position. A feet marker and an outline of the fighter collision box (from `DefaultGameData.CreateFighterStats()`). A different color for a single spawn position (not in a pair). |
+
+Example structure:
+
+```
+StageStructure            (Node2D, position in whole pixels)
+├── StageCollisionBox     (Size, Type = Solid)
+├── StageCollisionBox     (a structure can have more than one)
+└── Sprite2D              (visuals: no rules, any float position/rotation/scale)
+```
+
+Conventions:
+- `StageCollisionBox`: the node `Position` is the **top-left corner**. `Min = Position`, `Max = Position + Size`. `Size` must be at least 1 x 1.
+- `SpawnPosition`: the node `Position` is the fighter **feet** (bottom-center of the collision box).
+- A `StageCollisionBox` can be at any depth under `StageRoot` (usually in a `StageStructure`). The converter finds it anywhere.
+- Every `Node2D` between an authoring node and `StageRoot` must also have whole-pixel positions and no rotation, scale, or skew. Use `StageStructure` (or other `StageNode` types) for grouping, so the editor snaps them.
+- `StageCollisionType` is used by the converter only. The simulation keeps separate arrays (`Solids`, `Platforms`).
+
+### 11.3 Spawn positions
+
+- A `SpawnPositionPair` node has exactly **two** `SpawnPosition` children. The two positions are "opposite" positions. They do not need to be exact mirrors.
+- A `SpawnPosition` that is **not** a child of a `SpawnPositionPair` is a **single spawn position**. A stage has at least **one** single spawn position (it can have more).
+- A stage has at least `MaxPlayers / 2` pairs (2 pairs for 4 players).
+
+Spawn position selection at match start (`SpawnPositionSelector`, in the simulation, with `WorldData.Rng`, so it is deterministic):
+1. `pairsNeeded = playerCount / 2`. Pick `pairsNeeded` different pairs at random (partial Fisher-Yates shuffle of the pair indices).
+2. Make a list of the positions of the picked pairs. If `playerCount` is odd, add one single spawn position, chosen at random.
+3. Shuffle the list at random, and give position `i` to active player slot `i`.
+
+Examples: 1 player → 1 random single. 2 players → 1 random pair. 3 players → 1 random pair + 1 random single. 4 players → 2 random pairs.
+Facing at the spawn position: toward the center of the stage `Bounds` (no change).
+
+The match restart (M6) runs the same selection again. `Rng` has advanced, so the spawn positions are different.
+
+### 11.4 Exact values (integer pixels)
+
+Godot stores positions as 32-bit floats (about 24 bits of precision). Most fixed-point values with a fraction cannot be stored exactly in a float, but all integers up to 16 million can. So all authored values are **whole pixels**. There are three levels of protection:
+
+1. **Integer types**: `StageCollisionBox.Size` is a `Vector2I`. The Inspector accepts only whole numbers.
+2. **Editor snapping**: the `StageNode` base class calls `SetNotifyLocalTransform(true)`. On `NotificationLocalTransformChanged`, it rounds `Position` to whole pixels and resets rotation, scale, and skew to their default values. A drag moves in 1-pixel steps.
+3. **Check at load**: the converter does not trust the editor (a `.tscn` file can be changed by hand, and a parent node can move by a fraction).
+
+Converter rules:
+- For each authored node, add the local `Position` of the node and of every ancestor up to `StageRoot`, with `int` math. Do not use `GlobalPosition` (it comes from float matrix math).
+- Each local value: `int v = Mathf.RoundToInt(f)`. If `Math.Abs(f - v) > 0.001`, report an error with the node path.
+- If the node or an ancestor has rotation, a scale other than (1, 1), or skew, report an error with the node path.
+- Collect all errors, then fail with the full list (not only the first error).
+
+### 11.5 Converter and data flow
+
+- `StageConverter` (in `project/src/Authoring/`): `StageData Convert(StageRoot root)`. It walks the tree depth-first in child order, and collects `StageCollisionBox`, `SpawnPositionPair`, and `SpawnPosition` nodes at any depth. The child order is saved in the `.tscn` file, so the result is the same on every machine.
+- Simulation changes (`project/simulation/`):
+  - `StageData(FixedAABB[] solids, FixedAABB[] platforms, FixedVector2[] singleSpawnPositions, SpawnPositionPair[] spawnPositionPairs)`. `SpawnPositionPair` is a struct with two `FixedVector2` (`A`, `B`). This replaces `SpawnPoints`. The simulation type `SpawnPositionPair` is in namespace `FightingGame.Simulation`; the authoring node is `FightingGame.Authoring.SpawnPositionPair`.
+  - `StageData.ComputeHash()`: hash of all boxes and spawn positions. In M9, peers compare it when they connect.
+  - `WorldData.Create` uses the spawn position selection in 11.3.
+  - The hard-coded stage moves from `DefaultGameData` to the test project (`TestStages`). `DefaultGameData` keeps only the fighter stats.
+- Unit tests: spawn position selection (counts, no duplicate positions, deterministic for a seed, both positions of a pair used, all singles used over many seeds), `StageData` validation, hash.
+
+### 11.6 Editor feedback
+
+- `StageRoot` and `SpawnPositionPair` implement `_GetConfigurationWarnings()`. The scene tree shows a warning icon when the structure is wrong (for example: no single spawn position, a `SpawnPositionPair` without exactly two `SpawnPosition` children, too few pairs, a non-integer position). The warnings use the same checks as the converter.
+- Authoring scripts call `UpdateConfigurationWarnings()` on the `StageRoot` when they change.
+
+### 11.7 Scenes
+
+| Scene | Content |
+|---|---|
+| `scenes/stages/pieces/StageSimpleStructure.tscn` | `StageStructure` + one `StageCollisionBox` (`Type = Solid`) + `Sprite2D` |
+| `scenes/stages/pieces/StageSimplePlatform.tscn` | `StageStructure` + one `StageCollisionBox` (`Type = Platform`) + `Sprite2D` |
+| `scenes/stages/StageBase.tscn` | Base scene for all stages (see below) |
+| `scenes/stages/Stage01.tscn` | **Inherits** `StageBase.tscn`. Adds floor, ceiling, and walls (`StageStructure` nodes built in the stage) and one platform under `Structures`, and one or more single `SpawnPosition` nodes and 2–3 `SpawnPositionPair` nodes under `SpawnPositions` |
+| `scenes/Match.tscn` | `MatchRunner` gets `[Export] PackedScene StageScene`. At `_Ready`, it instantiates the stage, converts it, and creates `GameData`. `StageView` becomes a debug overlay (on/off with a key, off by default) |
+
+Stage01 recreates the M2 stage: 1152 x 648, floor top at y = 600, platform x 426–726 at y = 420.
+
+Base scene: every stage scene inherits `StageBase.tscn`, so all stages have the same root nodes. To add a root node to all stages, add it to `StageBase.tscn`.
+
+```
+Stage (StageRoot)              root
+├── Background (Node2D)        visuals only (no rules)
+├── Structures (StageNode)     StageStructure nodes
+└── SpawnPositions (StageNode) single SpawnPosition nodes and SpawnPositionPair nodes
+```
+
+`StageBase.tscn` alone shows configuration warnings (no spawn positions). This is expected: it is never used as a stage.
+Done by the user: `StageBase.tscn` (root `Node2D` named `Stage`, no script yet) and `Stage01.tscn` (inherits `StageBase.tscn`). Step 3 attaches `StageRoot` to the root and adds the child nodes.
+
+Prefab scenes and sizes:
+- You can add new children to a prefab instance without "Editable Children". But to change a node inside the instance (for example the `Size` of its box), you must enable "Editable Children".
+- So use prefab scenes for pieces with a **fixed size** (the box matches the art).
+- Build pieces with a **free size** (floor, walls, ceiling) directly in the stage from `StageStructure` + `StageCollisionBox`. Duplicate them with Ctrl+D.
+
+### 11.8 Implementation steps
+
+Each step stops for review.
+
+1. Simulation: `StageData` with spawn position pairs and single spawn positions, `SpawnPositionSelector`, `ComputeHash`, tests. (Done. `TestStages` moves to step 4.)
+2. Authoring scripts: `StageNode`, `StageRoot`, `StageStructure`, `StageCollisionBox`, `SpawnPositionPair`, `SpawnPosition` (drawing and snapping), and `StageConverter` with its checks.
+3. Scenes: `StageBase.tscn`, `Stage01.tscn` (inherited), `StageSimpleStructure.tscn`, `StageSimplePlatform.tscn` (built with the Godot MCP).
+4. `MatchRunner` loads `Stage01.tscn`. Debug overlay toggle. Test in the running game.
+
+### 11.9 Not in M3
+
+- Resize handles in the viewport (needs an `EditorPlugin`). The first version uses the `Size` property in the Inspector.
+- Moving platforms or other stage state that changes during a match.
+- Other collision shapes (slopes, circles). The component design allows them, but each one also needs new fixed-point collision code in the simulation.

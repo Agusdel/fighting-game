@@ -10,13 +10,13 @@ public enum MatchPhase : byte
 
 /// <summary>
 /// The complete rollback state of a match. It is one value type with no references:
-/// a snapshot is a copy (<c>WorldState snapshot = state;</c>), and a restore is a copy back.
+/// a snapshot is a copy (<c>WorldData snapshot = state;</c>), and a restore is a copy back.
 /// </summary>
 /// <remarks>
 /// The hash reads each field explicitly and never the raw memory. Raw memory includes struct padding bytes,
 /// and their content is not defined, so two equal states could give different raw-memory hashes.
 /// </remarks>
-public struct WorldState
+public struct WorldData
 {
     /// <summary>Number of ticks run since the match started.</summary>
     public int Frame;
@@ -30,34 +30,35 @@ public struct WorldState
 
     public FighterArray Fighters;
 
-    /// <summary>Creates the state at frame 0. Fighters in slots 0 to playerCount - 1 are active.</summary>
-    public static WorldState Create(GameData data, int playerCount, ulong seed)
+    /// <summary>
+    /// Creates the state at frame 0. Fighters in slots 0 to playerCount - 1 are active.
+    /// The spawn positions are chosen at random with <see cref="SpawnPositionSelector"/> and the seeded <see cref="Rng"/>.
+    /// </summary>
+    public static WorldData Create(GameData data, int playerCount, ulong seed)
     {
-        StageData stage = data.Stage;
         if (playerCount < 1 || playerCount > GameConstants.MaxPlayers)
         {
             throw new ArgumentOutOfRangeException(nameof(playerCount));
         }
-        if (stage.SpawnPoints.Length < playerCount)
-        {
-            throw new ArgumentException($"The stage has {stage.SpawnPoints.Length} spawn points, but {playerCount} players.");
-        }
 
-        var state = new WorldState
+        var state = new WorldData
         {
             Rng = new FixedRng(seed),
             Phase = MatchPhase.Fighting,
         };
 
+        StageData stage = data.Stage;
+        Span<FixedVector2> spawnPositions = stackalloc FixedVector2[GameConstants.MaxPlayers];
+        SpawnPositionSelector.Select(stage, playerCount, ref state.Rng, spawnPositions);
+
         Fixed centerX = (stage.Bounds.Min.X + stage.Bounds.Max.X) * Fixed.Half;
         for (int i = 0; i < playerCount; i++)
         {
-            FixedVector2 spawn = stage.SpawnPoints[i];
-            state.Fighters[i] = new FighterState
+            state.Fighters[i] = new FighterData
             {
                 Active = true,
-                Position = spawn,
-                Facing = (sbyte)(spawn.X <= centerX ? 1 : -1),
+                Position = spawnPositions[i],
+                Facing = (sbyte)(spawnPositions[i].X <= centerX ? 1 : -1),
                 Action = FighterAction.Idle,
                 Grounded = true,
                 JumpsLeft = data.Fighter.MaxJumps,

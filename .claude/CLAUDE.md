@@ -17,6 +17,8 @@ Run Godot and `dotnet` commands for the game from `project/`, not from the repos
 
 - Write all code in C#, unless the user specifies a different language.
 - Do not use GDScript unless the user asks for it.
+- Naming: simulation types that hold data use the `Data` suffix (`WorldData`, `FighterData`, `StageData`, `GameData`). Exceptions: `FighterStats`, `FrameInput`, and enums.
+- Naming: use the term "spawn position" (`SpawnPosition...`), never only "spawn".
 - Do not reference `project.md` (or any other design document) in code or comments. The design document can be removed in the future. If code needs an explanation, write the full explanation in a comment in the code file.
 
 ## Communication
