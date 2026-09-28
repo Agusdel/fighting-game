@@ -3,51 +3,10 @@ using FightingGame.Core;
 namespace FightingGame.Simulation;
 
 /// <summary>
-/// Hard-coded game data. The stage is temporary: later it is loaded from a stage scene made in the Godot editor.
+/// Hard-coded game data that has no editor authoring yet. Stages come from stage scenes made in the Godot editor.
 /// </summary>
 public static class DefaultGameData
 {
-    public static GameData Create() => new()
-    {
-        Stage = CreateStage(),
-        Fighter = CreateFighterStats(),
-    };
-
-    /// <summary>
-    /// A closed 1152 x 648 box (the default Godot window size): floor, ceiling, two walls, and one platform in the center.
-    /// </summary>
-    public static StageData CreateStage()
-    {
-        FixedAABB Box(int minX, int minY, int maxX, int maxY) =>
-            new(new FixedVector2(minX, minY), new FixedVector2(maxX, maxY));
-
-        FixedAABB[] solids =
-        {
-            Box(0, 600, 1152, 648),   // Floor
-            Box(0, 0, 1152, 32),      // Ceiling
-            Box(0, 32, 32, 600),      // Left wall
-            Box(1120, 32, 1152, 600), // Right wall
-        };
-
-        FixedAABB[] platforms =
-        {
-            Box(426, 420, 726, 436),
-        };
-
-        // One single spawn position on the platform. Two pairs on the floor.
-        FixedVector2[] singleSpawnPositions =
-        {
-            new(576, 420),
-        };
-        SpawnPositionPair[] spawnPositionPairs =
-        {
-            new(new FixedVector2(250, 600), new FixedVector2(902, 600)),
-            new(new FixedVector2(450, 600), new FixedVector2(702, 600)),
-        };
-
-        return new StageData(solids, platforms, singleSpawnPositions, spawnPositionPairs);
-    }
-
     public static FighterStats CreateFighterStats() => new()
     {
         CollisionBoxSize = new FixedVector2(48, 96),

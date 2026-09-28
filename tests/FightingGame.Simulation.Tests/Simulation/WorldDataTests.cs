@@ -14,7 +14,7 @@ public class WorldDataTests
     [Fact]
     public void CreateActivatesOnlyTheRequestedSlots()
     {
-        GameData data = DefaultGameData.Create();
+        GameData data = TestStages.CreateGameData();
         WorldData state = WorldData.Create(data, 2, 1);
 
         Assert.True(state.Fighters[0].Active);
@@ -26,7 +26,7 @@ public class WorldDataTests
     [Fact]
     public void CreateFacesTheStageCenter()
     {
-        GameData data = DefaultGameData.Create();
+        GameData data = TestStages.CreateGameData();
         Fixed centerX = (data.Stage.Bounds.Min.X + data.Stage.Bounds.Max.X) * Fixed.Half;
         for (ulong seed = 0; seed < 20; seed++)
         {
@@ -42,7 +42,7 @@ public class WorldDataTests
     [Fact]
     public void CreateUsesTheSpawnPositionSelection()
     {
-        GameData data = DefaultGameData.Create();
+        GameData data = TestStages.CreateGameData();
         WorldData state = WorldData.Create(data, 3, 7);
 
         var rng = new FixedRng(7);
@@ -61,7 +61,7 @@ public class WorldDataTests
     [InlineData(GameConstants.MaxPlayers + 1)]
     public void CreateRejectsInvalidPlayerCount(int playerCount)
     {
-        Assert.Throws<ArgumentOutOfRangeException>(() => WorldData.Create(DefaultGameData.Create(), playerCount, 1));
+        Assert.Throws<ArgumentOutOfRangeException>(() => WorldData.Create(TestStages.CreateGameData(), playerCount, 1));
     }
 
     /// <summary>

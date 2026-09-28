@@ -2,10 +2,13 @@
 
 [ext_resource type="Script" uid="uid://bgtjhesu7sfcr" path="res://src/Presentation/MatchRunner.cs" id="1_1w71u"]
 [ext_resource type="Script" uid="uid://1p6j2wf63n34" path="res://src/Presentation/StageView.cs" id="2_d2rnv"]
+[ext_resource type="PackedScene" uid="uid://ciw86rqslsv8n" path="res://scenes/stages/Stage01.tscn" id="2_tte12"]
 
 [node name="Match" type="Node2D" unique_id=2000042306 node_paths=PackedStringArray("StageView", "FightersRoot", "DebugLabel")]
 script = ExtResource("1_1w71u")
+StageScene = ExtResource("2_tte12")
 PlayerCount = 2
+ShowStageDebug = true
 StageView = NodePath("StageView")
 FightersRoot = NodePath("Fighters")
 DebugLabel = NodePath("DebugLabel")

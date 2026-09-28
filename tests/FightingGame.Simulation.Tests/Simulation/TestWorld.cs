@@ -3,10 +3,10 @@ using FightingGame.Simulation;
 
 namespace FightingGame.Simulation.Tests.Simulation;
 
-/// <summary>A match with the default game data, and helpers to run ticks in tests.</summary>
+/// <summary>A match on the default test stage, and helpers to run ticks in tests.</summary>
 internal sealed class TestWorld
 {
-    public readonly GameData Data = DefaultGameData.Create();
+    public readonly GameData Data = TestStages.CreateGameData();
     public WorldData State;
 
     /// <summary>

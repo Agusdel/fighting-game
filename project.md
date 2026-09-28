@@ -12,9 +12,10 @@ Status: **Draft**. This document is the source of truth for the design. Update i
 
 Update this section at the end of each work session.
 
-- **Done:** M0, M1, M2 (simulation and Godot side). `Match.tscn` runs one fighter on the default stage with placeholder rectangles.
-- **Git:** M2 Godot side is not committed yet.
-- **Next:** M3 (stage authoring), design agreed in section 11. Steps 1–3 are done (the piece scenes `StageSimpleStructure.tscn` and `StageSimplePlatform.tscn` are not made yet: they wait for art). Next is step 4 (`MatchRunner` loads `Stage01.tscn`, hash check against the M2 stage, debug overlay toggle). The movement feel is OK for now (tune later).
+- **Done:** M0, M1, M2, M3. `Match.tscn` loads `Stage01.tscn` (authored in the editor), converts it, and runs up to 4 fighters on it.
+- **Git:** M3 step 4 is not committed yet.
+- **Open in M3:** the piece scenes `StageSimpleStructure.tscn` and `StageSimplePlatform.tscn` wait for art. When art exists, turn off `ShowStageDebug` on the `Match` node.
+- **Next:** M4 (determinism tools: replay recording, replay viewer with slider, hash check, SyncTest). Design first, with the user.
 - **Later:** make fighter behavior data-driven (see section 6).
 - **Before the first public build:** create `scripts/export.sh` (see section 10).
 
@@ -301,7 +302,7 @@ Each milestone must be runnable and testable before the next one starts.
 | M0 | Project skeleton | Folder layout, test project, build command work. **Done 2026-09-25** |
 | M1 | Core math | `Fixed`, `FixedVector2`, `FixedAABB`, `FixedRng`, hash; unit tests pass. **Done 2026-09-25** |
 | M2 | Simulation core | One fighter moves, jumps, falls, collides with a hard-coded stage. State save/restore/hash works. Boxes drawn as rectangles. **Done 2026-09-26** (movement feel not yet checked by the user) |
-| M3 | Editor authoring | Stage authored in `Stage01.tscn` and converted to `StageData` |
+| M3 | Editor authoring | Stage authored in `Stage01.tscn` and converted to `StageData`. **Done 2026-09-27** (piece scenes wait for art) |
 | M4 | Determinism tools | Replay recording, replay viewer with slider, hash check, SyncTest mode |
 | M5 | Local multiplayer | Main menu (local), lobby with device assignment, 2–4 local players |
 | M6 | Combat | Frame data, hitboxes, hurtboxes, damage, health bar, death and restart. Fair resolution |
@@ -455,6 +456,7 @@ public static class Simulator
 | 2026-09-27 | M3 stage authoring design agreed (section 11): component nodes on a snapping `StageNode` base, spawn position pairs + single spawn positions, stages inherit `StageBase.tscn` |
 | 2026-09-27 | Renames: `WorldState` → `WorldData`, `FighterState` → `FighterData` (Data suffix for simulation data types; `FighterStats`, `FrameInput`, and enums keep their names). `SpawnSelector` → `SpawnPositionSelector`, `SpawnPair` → `SpawnPositionPair`, authoring `SpawnPoint` → `SpawnPosition`. "Spawn position" is the term everywhere |
 | 2026-09-27 | A stage has one or more single spawn positions (`SingleSpawnPositions`); an odd player count uses one at random |
+| 2026-09-27 | M3 done: `Match.tscn` loads its stage from a stage scene (`StageScene` export). The stage hash of `Stage01.tscn` equals the hash of the M2 stage |
 
 ---
 
@@ -623,7 +625,11 @@ Each step stops for review.
    - Only the chain between an authoring node (`StageCollisionBox`, `SpawnPosition`) and the root is checked. A non-`Node2D` node in that chain (for example `Node` or `CanvasLayer`) is an error, because it breaks the transform chain.
    - The root position is not included. Positions are relative to the stage root.
 3. Scenes: `StageBase.tscn`, `Stage01.tscn` (inherited), `StageSimpleStructure.tscn`, `StageSimplePlatform.tscn` (built with the Godot MCP). (`StageBase.tscn` and `Stage01.tscn` done. `Stage01` has the same boxes and spawn positions as the M2 stage, in the same order: `Floor`, `Ceiling`, `LeftWall`, `RightWall`, `Platform`; `Single`; `PairOuter`, `PairInner`. The piece scenes wait for art.)
-4. `MatchRunner` loads `Stage01.tscn`. Debug overlay toggle. Test in the running game.
+4. `MatchRunner` loads `Stage01.tscn`. Debug overlay toggle. Test in the running game. (Done.)
+   - `MatchRunner` exports `StageScene` (a `PackedScene` with a `StageRoot` root). It adds the stage as its first child at the origin, converts it, and prints the stage hash. On a conversion error, it logs all errors and stops.
+   - `ShowStageDebug` export + F1 key show or hide the `StageView` overlay. It is on in `Match.tscn` until the stage has art.
+   - The hard-coded stage moved to `tests/.../TestStages.cs` (a copy of `Stage01.tscn`). `DefaultGameData` keeps only `CreateFighterStats()`.
+   - Check: `Stage01.tscn` in the game and `TestStages.CreateDefault()` give the same `StageData.ComputeHash()` (`CAE0F8780BBCE087`). So the editor conversion is exact.
 
 ### 11.9 Not in M3
 

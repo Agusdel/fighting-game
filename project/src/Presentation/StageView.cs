@@ -4,7 +4,7 @@ using Godot;
 
 namespace FightingGame.Presentation;
 
-/// <summary>Draws the stage boxes as rectangles (placeholder art).</summary>
+/// <summary>Debug overlay: draws the converted stage boxes (the data the simulation uses) as rectangles.</summary>
 public partial class StageView : Node2D
 {
     [Export] public Color SolidColor { get; set; } = new(0.35f, 0.35f, 0.4f);
