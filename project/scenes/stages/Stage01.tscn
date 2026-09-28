@@ -1,5 +1,75 @@
 [gd_scene format=3 uid="uid://ciw86rqslsv8n"]
 
 [ext_resource type="PackedScene" uid="uid://w8wihnxwppy0" path="res://scenes/stages/StageBase.tscn" id="1_6ynnv"]
+[ext_resource type="Script" uid="uid://bikbvqfegw7r5" path="res://src/Authoring/StageStructure.cs" id="2_0tami"]
+[ext_resource type="Script" uid="uid://dmkh0cxxnultu" path="res://src/Authoring/StageCollisionBox.cs" id="3_uam3y"]
+[ext_resource type="Script" uid="uid://qkqosg7it3js" path="res://src/Authoring/SpawnPosition.cs" id="4_oexkw"]
+[ext_resource type="Script" uid="uid://wf12w7ldgqas" path="res://src/Authoring/SpawnPositionPair.cs" id="5_v7h6a"]
 
 [node name="Stage" unique_id=691767964 instance=ExtResource("1_6ynnv")]
+
+[node name="Floor" type="Node2D" parent="Structures" parent_id_path=PackedInt32Array(356238133) index="0" unique_id=589223585]
+position = Vector2(0, 600)
+script = ExtResource("2_0tami")
+
+[node name="CollisionBox" type="Node2D" parent="Structures/Floor" index="0" unique_id=1182893737]
+script = ExtResource("3_uam3y")
+Size = Vector2i(1152, 48)
+
+[node name="Ceiling" type="Node2D" parent="Structures" parent_id_path=PackedInt32Array(356238133) index="1" unique_id=62045591]
+script = ExtResource("2_0tami")
+
+[node name="CollisionBox" type="Node2D" parent="Structures/Ceiling" index="0" unique_id=642312211]
+script = ExtResource("3_uam3y")
+Size = Vector2i(1152, 32)
+
+[node name="LeftWall" type="Node2D" parent="Structures" parent_id_path=PackedInt32Array(356238133) index="2" unique_id=1917231200]
+position = Vector2(0, 32)
+script = ExtResource("2_0tami")
+
+[node name="CollisionBox" type="Node2D" parent="Structures/LeftWall" index="0" unique_id=1362363226]
+script = ExtResource("3_uam3y")
+Size = Vector2i(32, 568)
+
+[node name="RightWall" type="Node2D" parent="Structures" parent_id_path=PackedInt32Array(356238133) index="3" unique_id=690979958]
+position = Vector2(1120, 32)
+script = ExtResource("2_0tami")
+
+[node name="CollisionBox" type="Node2D" parent="Structures/RightWall" index="0" unique_id=342463705]
+script = ExtResource("3_uam3y")
+Size = Vector2i(32, 568)
+
+[node name="Platform" type="Node2D" parent="Structures" parent_id_path=PackedInt32Array(356238133) index="4" unique_id=1718727351]
+position = Vector2(426, 420)
+script = ExtResource("2_0tami")
+
+[node name="CollisionBox" type="Node2D" parent="Structures/Platform" index="0" unique_id=1869297365]
+script = ExtResource("3_uam3y")
+Size = Vector2i(300, 16)
+Type = 1
+
+[node name="Single" type="Node2D" parent="SpawnPositions" parent_id_path=PackedInt32Array(1465713090) index="0" unique_id=976936914]
+position = Vector2(576, 420)
+script = ExtResource("4_oexkw")
+
+[node name="PairOuter" type="Node2D" parent="SpawnPositions" parent_id_path=PackedInt32Array(1465713090) index="1" unique_id=1559864987]
+script = ExtResource("5_v7h6a")
+
+[node name="Left" type="Node2D" parent="SpawnPositions/PairOuter" index="0" unique_id=523643527]
+position = Vector2(250, 600)
+script = ExtResource("4_oexkw")
+
+[node name="Right" type="Node2D" parent="SpawnPositions/PairOuter" index="1" unique_id=182693718]
+position = Vector2(902, 600)
+script = ExtResource("4_oexkw")
+
+[node name="PairInner" type="Node2D" parent="SpawnPositions" parent_id_path=PackedInt32Array(1465713090) index="2" unique_id=1973895769]
+script = ExtResource("5_v7h6a")
+
+[node name="Left" type="Node2D" parent="SpawnPositions/PairInner" index="0" unique_id=1553756685]
+position = Vector2(450, 600)
+script = ExtResource("4_oexkw")
+
+[node name="Right" type="Node2D" parent="SpawnPositions/PairInner" index="1" unique_id=1667950868]
+position = Vector2(702, 600)
+script = ExtResource("4_oexkw")

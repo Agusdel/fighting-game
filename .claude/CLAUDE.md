@@ -60,6 +60,10 @@ The Godot MCP Pro server (`godot-mcp-pro`) connects Claude to the open Godot edi
 - Do not start a headless Godot **editor** (`--editor`, `--build-solutions`, `--import`) while the user's editor is open. The MCP plugin in the headless editor removes its autoloads from `project.godot` when it quits, and the game then starts without them. `scripts/build.sh` skips the Godot build in this case. A headless **game** run (`godot --headless --path project res://scenes/X.tscn --quit-after N`) is safe.
 - If `project.godot` loses the `MCP*` autoloads, restore them with `project set-setting --setting autoload/<Name> --value "*res://addons/godot_mcp/<file>.gd" --type string`.
 - `input key` sets only the logical `keycode`. The game reads physical keys, so it does not see these events. To simulate a key, use `runtime exec` with an `InputEventKey` that sets `physical_keycode`, then `Input.parse_input_event(e)`.
+- C# properties keep their C# names in Godot. In GDScript and in MCP property commands, use `Size`, not `size` (for example `node.set("Size", Vector2i(10, 10))`). Built-in Godot properties keep their snake_case names (`position`).
+- To test tool scripts without a scene change, build a node tree in memory in `editor exec` (add it under `EditorInterface.get_base_control()`), check it, and `queue_free()` it at the end.
+- A script attached to a node that is already in the tree gets no enter-tree notification, so its `_Draw` may not run. Reload the saved scene (`EditorInterface.reload_scene_from_path(path)` in `editor exec`) to see the real editor view. The reload also uses the newest C# assembly.
+- `EditorInterface.get_resource_filesystem().scan()` in `editor exec` finds new `.cs` files, but it logs harmless `progress_dialog.cpp` errors. Use it only when a new script class must be registered.
 - Each CLI call takes several seconds. Do not use CLI timing to check frame-exact behavior; use unit tests for that.
 
 Tool usage instructions from the MCP package:

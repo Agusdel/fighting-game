@@ -14,7 +14,7 @@ Update this section at the end of each work session.
 
 - **Done:** M0, M1, M2 (simulation and Godot side). `Match.tscn` runs one fighter on the default stage with placeholder rectangles.
 - **Git:** M2 Godot side is not committed yet.
-- **Next:** M3 (stage authoring), design agreed in section 11. Step 1 (simulation side) is done. Next is step 2 (authoring scripts and `StageConverter`). The movement feel is OK for now (tune later).
+- **Next:** M3 (stage authoring), design agreed in section 11. Steps 1–3 are done (the piece scenes `StageSimpleStructure.tscn` and `StageSimplePlatform.tscn` are not made yet: they wait for art). Next is step 4 (`MatchRunner` loads `Stage01.tscn`, hash check against the M2 stage, debug overlay toggle). The movement feel is OK for now (tune later).
 - **Later:** make fighter behavior data-driven (see section 6).
 - **Before the first public build:** create `scripts/export.sh` (see section 10).
 
@@ -617,8 +617,12 @@ Prefab scenes and sizes:
 Each step stops for review.
 
 1. Simulation: `StageData` with spawn position pairs and single spawn positions, `SpawnPositionSelector`, `ComputeHash`, tests. (Done. `TestStages` moves to step 4.)
-2. Authoring scripts: `StageNode`, `StageRoot`, `StageStructure`, `StageCollisionBox`, `SpawnPositionPair`, `SpawnPosition` (drawing and snapping), and `StageConverter` with its checks.
-3. Scenes: `StageBase.tscn`, `Stage01.tscn` (inherited), `StageSimpleStructure.tscn`, `StageSimplePlatform.tscn` (built with the Godot MCP).
+2. Authoring scripts: `StageNode`, `StageRoot`, `StageStructure`, `StageCollisionBox`, `SpawnPositionPair`, `SpawnPosition` (drawing and snapping), and `StageConverter` with its checks. (Done. Tested in the editor with an in-memory node tree: snapping, `Size` clamp, pair warning, root warnings with node paths. Sprites with float values are ignored.)
+   - All scripts have `[GlobalClass]`, so they appear by name in the "Add Node" dialog.
+   - `StageCollisionBox`, `SpawnPosition`, and `SpawnPositionPair` draw only in the editor. In the game, the art comes from visual nodes, and `StageView` is the debug overlay.
+   - Only the chain between an authoring node (`StageCollisionBox`, `SpawnPosition`) and the root is checked. A non-`Node2D` node in that chain (for example `Node` or `CanvasLayer`) is an error, because it breaks the transform chain.
+   - The root position is not included. Positions are relative to the stage root.
+3. Scenes: `StageBase.tscn`, `Stage01.tscn` (inherited), `StageSimpleStructure.tscn`, `StageSimplePlatform.tscn` (built with the Godot MCP). (`StageBase.tscn` and `Stage01.tscn` done. `Stage01` has the same boxes and spawn positions as the M2 stage, in the same order: `Floor`, `Ceiling`, `LeftWall`, `RightWall`, `Platform`; `Single`; `PairOuter`, `PairInner`. The piece scenes wait for art.)
 4. `MatchRunner` loads `Stage01.tscn`. Debug overlay toggle. Test in the running game.
 
 ### 11.9 Not in M3

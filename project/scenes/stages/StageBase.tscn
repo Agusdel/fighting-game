@@ -1,3 +1,15 @@
 [gd_scene format=3 uid="uid://w8wihnxwppy0"]
 
+[ext_resource type="Script" uid="uid://dtl5ch1xuergk" path="res://src/Authoring/StageRoot.cs" id="1_qy2lt"]
+[ext_resource type="Script" uid="uid://chfgv4ycsbbfh" path="res://src/Authoring/StageNode.cs" id="2_gieif"]
+
 [node name="Stage" type="Node2D" unique_id=691767964]
+script = ExtResource("1_qy2lt")
+
+[node name="Background" type="Node2D" parent="." unique_id=1368779495]
+
+[node name="Structures" type="Node2D" parent="." unique_id=356238133]
+script = ExtResource("2_gieif")
+
+[node name="SpawnPositions" type="Node2D" parent="." unique_id=1465713090]
+script = ExtResource("2_gieif")
