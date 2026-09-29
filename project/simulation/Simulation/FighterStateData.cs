@@ -41,6 +41,9 @@ public enum StateFlags : ushort
 
     /// <summary>A hit does damage, but does not force the change to hitstun.</summary>
     ArmoredAgainstHits = 1 << 2,
+
+    /// <summary>The fighter has no hurtboxes: it cannot be hit (for example when it is dead).</summary>
+    Intangible = 1 << 3,
 }
 
 public enum ConditionType : byte

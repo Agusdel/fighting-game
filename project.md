@@ -14,7 +14,7 @@ Update this section at the end of each work session.
 
 - **Done:** M0, M1, M2, M3. `Match.tscn` loads `Stage01.tscn` (authored in the editor), converts it, and runs up to 4 fighters on it.
 - **Open in M3:** the piece scenes `StageSimpleStructure.tscn` and `StageSimplePlatform.tscn` wait for art. When art exists, turn off `ShowStageDebug` on the `Match` node.
-- **Next:** M4 (combat and fighter state machine), design agreed in section 12. Steps 1 (state machine core) and 2 (combat) are done. Next is step 3 (death and restart).
+- **Next:** M4 (combat and fighter state machine), design agreed in section 12. Steps 1 (state machine core), 2 (combat), and 3 (death and restart) are done. Next is step 4 (presentation: hitbox and hurtbox drawing, state name, health bars).
 - **Later:** make fighter behavior data-driven (see section 6).
 - **Before the first public build:** create `scripts/export.sh` (see section 10).
 
@@ -847,7 +847,13 @@ Each step stops for review.
    - `FighterDefinitionData`: `HitstunState` (optional: without it, hits do damage only) and `DefaultHurtboxes` (the body box 48 x 96).
    - Default attack values: light attacks 18 frames, hitbox frames 4–6, damage 5, hitstun 12, hitstop 3. Heavy attacks 36 frames, hitbox frames 12–16, damage 15, hitstun 24, hitstop 6. First guesses: tune them in the game.
    - The debug label: one line per value, 2 decimals with a fixed width, monospace font, one block for each active player.
-3. **Death and restart.** `Dead`, `MatchPhase.RoundOver`, restart with new spawn positions. Tests.
+3. **Death and restart.** `Dead`, `MatchPhase.RoundOver`, restart with new spawn positions. Tests. (Done. 11 new tests.)
+   - New flag `StateFlags.Intangible`: the state has no hurtboxes (the empty list means "use the default hurtboxes", so a flag is needed). `Dead` uses it.
+   - `FighterDefinitionData.DeadState` (optional). When a hit brings the health to 0, the fighter changes to `DeadState` (armor does not prevent it), and the body keeps the knockback of the hit (`Dead` uses `MovementMode.Knockback`).
+   - `MatchRules.cs` runs at the end of each tick. A fighter with 0 health is defeated. The round ends when at most one fighter is left (2+ players; also a double defeat), or when the single player is defeated.
+   - `MatchRulesData.RestartDelayFrames` (default 120).
+   - `WorldData.Round` (from 1). `WorldData.StartRound` is used by `Create` and by the restart: full health, idle state, new spawn positions from `Rng`. `Frame` never resets. `PrevInput` is kept, so a button held across the restart is not a new press.
+   - The debug label shows the round and the phase.
 4. **Presentation.** State name label, hitbox and hurtbox debug drawing, health bars. Test in the running game.
 
 ### 12.13 Not in M4 (the design allows them later)

@@ -27,12 +27,20 @@ public sealed class FighterDefinitionData
     /// <summary>The state after a hit. <see cref="FighterStateData.NoState"/> = hits do damage only.</summary>
     public required ushort HitstunState { get; init; }
 
+    /// <summary>
+    /// The state when the health reaches 0. <see cref="FighterStateData.NoState"/> = the fighter does not change state
+    /// (but a fighter with 0 health still counts as defeated for the match rules).
+    /// </summary>
+    public required ushort DeadState { get; init; }
+
     /// <summary>The hurtboxes of states that do not define their own.</summary>
     public required HurtboxData[] DefaultHurtboxes { get; init; }
 
-    /// <summary>The hurtboxes of a state (its own, or the default ones).</summary>
+    /// <summary>The hurtboxes of a state: none if it is <see cref="StateFlags.Intangible"/>, else its own, or else the default ones.</summary>
     public HurtboxData[] HurtboxesOf(FighterStateData state) =>
-        state.Hurtboxes.Length > 0 ? state.Hurtboxes : DefaultHurtboxes;
+        state.Has(StateFlags.Intangible) ? Array.Empty<HurtboxData>()
+        : state.Hurtboxes.Length > 0 ? state.Hurtboxes
+        : DefaultHurtboxes;
 
     /// <summary>Returns the id of the state with this name. Throws if there is no such state. Not for use in a tick (it searches the array).</summary>
     public ushort FindState(string name)
@@ -57,6 +65,7 @@ public sealed class FighterDefinitionData
         Stats.Hash(ref hasher);
         hasher.Add(IdleState);
         hasher.Add(HitstunState);
+        hasher.Add(DeadState);
         HashHurtboxes(ref hasher, DefaultHurtboxes);
 
         hasher.Add(States.Length);

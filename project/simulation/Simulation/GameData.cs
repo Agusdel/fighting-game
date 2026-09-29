@@ -20,10 +20,14 @@ public sealed class MatchRulesData
     /// <summary>When a hit connects, the attacker and the target freeze for the hitstop frames of the hitbox.</summary>
     public bool HitstopEnabled { get; init; } = true;
 
+    /// <summary>Frames between the end of a round (at most one fighter left) and the start of the next round.</summary>
+    public int RestartDelayFrames { get; init; } = 120;
+
     public ulong ComputeHash()
     {
         var hasher = new StateHasher();
         hasher.Add(HitstopEnabled);
+        hasher.Add(RestartDelayFrames);
         return hasher.Value;
     }
 }

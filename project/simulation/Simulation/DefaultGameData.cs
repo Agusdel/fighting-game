@@ -9,11 +9,11 @@ public static class DefaultGameData
 {
     /// <summary>
     /// The default fighter: walk, jump (with jump squat), double jump, fall, land, drop through platforms,
-    /// a light attack and a heavy attack (each with forward, up, and down variants), and hitstun.
+    /// a light attack and a heavy attack (each with forward, up, and down variants), hitstun, and defeat.
     /// </summary>
     public static FighterDefinitionData CreateFighterDefinition()
     {
-        var builder = new FighterDefinitionBuilder(CreateFighterStats()) { IdleState = "Idle", HitstunState = "Hitstun" };
+        var builder = new FighterDefinitionBuilder(CreateFighterStats()) { IdleState = "Idle", HitstunState = "Hitstun", DeadState = "Dead" };
 
         // Boxes are relative to the feet, for a fighter that faces right. The fighter body is 48 x 96.
         static FixedAABB Box(int minX, int minY, int maxX, int maxY) =>
@@ -109,6 +109,11 @@ public static class DefaultGameData
             .Movement(MovementMode.Knockback)
             .Transition("Idle", ConditionData.HitstunEnded, ConditionData.Grounded)
             .Transition("Fall", ConditionData.HitstunEnded));
+
+        // Health 0: the body keeps the knockback of the last hit, slides to a stop, and cannot be hit again.
+        builder.State("Dead", s => s
+            .Movement(MovementMode.Knockback)
+            .Flags(StateFlags.Intangible));
 
         builder.SharedGroundTransition("PlatformDrop",
             ConditionData.Pressed(InputFlags.Jump),

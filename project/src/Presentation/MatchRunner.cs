@@ -131,6 +131,7 @@ public partial class MatchRunner : Node2D
     {
         var text = new StringBuilder();
         text.AppendLine($"Frame {_world.Frame,8}   Hash {_world.ComputeHash():X16}");
+        text.AppendLine($"Round {_world.Round,8}   {_world.Phase} ({_world.PhaseTimer})");
         for (int i = 0; i < GameConstants.MaxPlayers; i++)
         {
             ref readonly FighterData f = ref _world.Fighters[i];

@@ -67,6 +67,14 @@ public static class FighterCombat
 
             fighter.Health = Math.Max(0, fighter.Health - damage[i]);
 
+            if (fighter.Health == 0 && definition.DeadState != FighterStateData.NoState)
+            {
+                // A defeat ignores armor. The body keeps the knockback of the last hit.
+                fighter.Velocity = knockback[i];
+                FighterStateMachine.Enter(ref fighter, definition.DeadState, Simulator.CreateContext(fighter, input[i], data));
+                continue;
+            }
+
             FighterStateData state = definition.States[fighter.StateId];
             if (state.Has(StateFlags.ArmoredAgainstHits) || definition.HitstunState == FighterStateData.NoState)
             {

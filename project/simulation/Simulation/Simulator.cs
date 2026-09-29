@@ -18,6 +18,8 @@ namespace FightingGame.Simulation;
 /// <item>Hits: detect all hits, then apply them all at the same time (<see cref="FighterCombat"/>).</item>
 /// <item>Input memory: each fighter stores this frame's input, to detect pressed and released buttons on the next
 /// frame. A frozen fighter keeps its old input, so a button pressed during hitstop counts as pressed after it.</item>
+/// <item>Match rules: end the round when at most one fighter is left, and start the next round after a delay
+/// (<see cref="MatchRules"/>).</item>
 /// </list>
 /// </remarks>
 public static class Simulator
@@ -66,6 +68,7 @@ public static class Simulator
 
         state.Frame++;
         state.PhaseTimer++;
+        MatchRules.Update(ref state, data);
     }
 
     /// <summary>The context of one fighter on this frame. <see cref="FighterData.PrevInput"/> still holds the last frame's input.</summary>

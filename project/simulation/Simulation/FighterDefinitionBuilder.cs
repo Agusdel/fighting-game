@@ -38,6 +38,9 @@ public sealed class FighterDefinitionBuilder
     /// <summary>The name of the state after a hit. Null = hits do damage only (no hitstun, no knockback).</summary>
     public string? HitstunState { get; set; }
 
+    /// <summary>The name of the state when the health reaches 0. Null = no state change.</summary>
+    public string? DeadState { get; set; }
+
     /// <summary>Adds a hurtbox for states that do not define their own. Active on all frames.</summary>
     public FighterDefinitionBuilder DefaultHurtbox(Core.FixedAABB box)
     {
@@ -142,6 +145,7 @@ public sealed class FighterDefinitionBuilder
 
         ushort idle = Resolve(IdleState, "IdleState");
         ushort hitstun = Resolve(HitstunState, "HitstunState");
+        ushort dead = Resolve(DeadState, "DeadState");
         TransitionData[] sharedGround = ResolveTransitions(_sharedGround, "Shared ground transition");
         TransitionData[] sharedAir = ResolveTransitions(_sharedAir, "Shared air transition");
 
@@ -158,6 +162,7 @@ public sealed class FighterDefinitionBuilder
             SharedAirTransitions = sharedAir,
             IdleState = idle,
             HitstunState = hitstun,
+            DeadState = dead,
             DefaultHurtboxes = _defaultHurtboxes.ToArray(),
         };
     }
