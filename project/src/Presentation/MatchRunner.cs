@@ -38,7 +38,11 @@ public partial class MatchRunner : Node2D
     /// <summary>Shows the collision boxes of the stage. F1 switches it on and off in the game.</summary>
     [Export] public bool ShowStageDebug { get; set; }
 
+    /// <summary>Shows the active hurtboxes and hitboxes of the fighters. F2 switches it on and off in the game.</summary>
+    [Export] public bool ShowCombatDebug { get; set; }
+
     [Export] public StageView? StageView { get; set; }
+    [Export] public HudView? Hud { get; set; }
     [Export] public Node2D? FightersRoot { get; set; }
     [Export] public Label? DebugLabel { get; set; }
 
@@ -92,10 +96,21 @@ public partial class MatchRunner : Node2D
 
     public override void _UnhandledInput(InputEvent @event)
     {
-        if (@event is InputEventKey { Pressed: true, Echo: false, PhysicalKeycode: Key.F1 } && StageView != null)
+        if (@event is not InputEventKey { Pressed: true, Echo: false } key)
+        {
+            return;
+        }
+
+        if (key.PhysicalKeycode == Key.F1 && StageView != null)
         {
             ShowStageDebug = !ShowStageDebug;
             StageView.Visible = ShowStageDebug;
+            GetViewport().SetInputAsHandled();
+        }
+        else if (key.PhysicalKeycode == Key.F2)
+        {
+            ShowCombatDebug = !ShowCombatDebug;
+            RefreshViews();
             GetViewport().SetInputAsHandled();
         }
     }
@@ -206,8 +221,10 @@ public partial class MatchRunner : Node2D
     {
         for (int i = 0; i < _fighterViews.Length; i++)
         {
-            _fighterViews[i].Refresh(_world.Fighters[i], _data.FighterDefinition.Stats);
+            _fighterViews[i].Refresh(_world.Fighters[i], _data.FighterDefinition, ShowCombatDebug);
         }
+
+        Hud?.Refresh(_world, _data.FighterDefinition, PlayerColors);
 
         if (DebugLabel != null)
         {

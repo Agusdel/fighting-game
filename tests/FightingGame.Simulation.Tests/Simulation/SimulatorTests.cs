@@ -124,6 +124,17 @@ public class SimulatorTests
     }
 
     [Fact]
+    public void FighterCanTurnInTheAir()
+    {
+        var world = new TestWorld();
+        world.PlaceInAir(new FixedVector2(500, 200), FixedVector2.Zero);
+        world.Fighter().Facing = 1;
+        world.Tick(InputFlags.Left);
+        Assert.Equal("Fall", world.StateName());
+        Assert.Equal(-1, world.Fighter().Facing);
+    }
+
+    [Fact]
     public void FallSpeedIsLimited()
     {
         var world = new TestWorld();

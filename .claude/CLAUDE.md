@@ -65,6 +65,7 @@ The Godot MCP Pro server (`godot-mcp-pro`) connects Claude to the open Godot edi
 - A script attached to a node that is already in the tree gets no enter-tree notification, so its `_Draw` may not run. Reload the saved scene (`EditorInterface.reload_scene_from_path(path)` in `editor exec`) to see the real editor view. The reload also uses the newest C# assembly.
 - `EditorInterface.get_resource_filesystem().scan()` in `editor exec` finds new `.cs` files, but it logs harmless `progress_dialog.cpp` errors. Use it only when a new script class must be registered.
 - Each CLI call takes several seconds. Do not use CLI timing to check frame-exact behavior; use unit tests for that.
+- To screenshot a short moment in the running game (for example an attack's active frames), slow the game with `Engine.time_scale = 0.02` in `runtime exec`. `MatchRunner` uses the frame delta, so the simulation slows down too.
 
 Tool usage instructions from the MCP package:
 

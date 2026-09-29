@@ -269,6 +269,18 @@ public class CombatTests
     }
 
     [Fact]
+    public void AirAttackKeepsTheFacing()
+    {
+        var world = new TestWorld();
+        world.PlaceInAir(new FixedVector2(500, 100), FixedVector2.Zero);
+        world.Fighter().Facing = 1;
+        world.Tick(Light);
+        world.Run(5, InputFlags.Left);
+        Assert.Equal("Attack1Forward", world.StateName());
+        Assert.Equal(1, world.Fighter().Facing);
+    }
+
+    [Fact]
     public void HeavyAttackStopsGroundMovement()
     {
         var world = new TestWorld();

@@ -12,9 +12,10 @@ Status: **Draft**. This document is the source of truth for the design. Update i
 
 Update this section at the end of each work session.
 
-- **Done:** M0, M1, M2, M3. `Match.tscn` loads `Stage01.tscn` (authored in the editor), converts it, and runs up to 4 fighters on it.
-- **Open in M3:** the piece scenes `StageSimpleStructure.tscn` and `StageSimplePlatform.tscn` wait for art. When art exists, turn off `ShowStageDebug` on the `Match` node.
-- **Next:** M4 (combat and fighter state machine), design agreed in section 12. Steps 1 (state machine core), 2 (combat), and 3 (death and restart) are done. Next is step 4 (presentation: hitbox and hurtbox drawing, state name, health bars).
+- **Done:** M0, M1, M2, M3, M4. `Match.tscn` runs up to 4 fighters on `Stage01.tscn` with the data-driven state machine, two attacks with direction variants, hitstop, defeat, and round restart. Debug drawing: F1 stage boxes, F2 hurtboxes and hitboxes. HUD health bars.
+- **Open in M3:** the piece scenes `StageSimpleStructure.tscn` and `StageSimplePlatform.tscn` wait for art. When art exists, turn off `ShowStageDebug` and `ShowCombatDebug` on the `Match` node.
+- **To tune (in the game):** movement values (`DefaultGameData.CreateFighterStats`) and attack values (`DefaultGameData.CreateFighterDefinition`).
+- **Next:** M5 (local multiplayer: main menu, lobby, device assignment). Design first, with the user.
 - **Later:** make fighter behavior data-driven (see section 6).
 - **Before the first public build:** create `scripts/export.sh` (see section 10).
 
@@ -302,7 +303,7 @@ Each milestone must be runnable and testable before the next one starts.
 | M1 | Core math | `Fixed`, `FixedVector2`, `FixedAABB`, `FixedRng`, hash; unit tests pass. **Done 2026-09-25** |
 | M2 | Simulation core | One fighter moves, jumps, falls, collides with a hard-coded stage. State save/restore/hash works. Boxes drawn as rectangles. **Done 2026-09-26** (movement feel not yet checked by the user) |
 | M3 | Editor authoring | Stage authored in `Stage01.tscn` and converted to `StageData`. **Done 2026-09-27** (piece scenes wait for art) |
-| M4 | Combat and fighter state machine | Data-driven fighter states, two attacks with direction variants, hitboxes, hurtboxes, damage, hitstun, knockback, hitstop (can be disabled), health bars, death and restart. Fair resolution (section 12) |
+| M4 | Combat and fighter state machine (**Done 2026-09-28**) | Data-driven fighter states, two attacks with direction variants, hitboxes, hurtboxes, damage, hitstun, knockback, hitstop (can be disabled), health bars, death and restart. Fair resolution (section 12) |
 | M5 | Local multiplayer | Main menu (local), lobby with device assignment, 2–4 local players |
 | M6 | Rollback (offline) | First step: SyncTest mode. Then `RollbackSession` with `LoopbackTransport`: two sessions in one process with simulated latency and loss. No desync |
 | M7 | Online (ENet) | Host / Join, online lobby, online match over localhost/LAN. Desync detection |
@@ -458,6 +459,7 @@ public static class Simulator
 | 2026-09-27 | M3 done: `Match.tscn` loads its stage from a stage scene (`StageScene` export). The stage hash of `Stage01.tscn` equals the hash of the M2 stage |
 | 2026-09-28 | New milestone order: M4 combat and fighter state machine, M5 local multiplayer, M6 rollback (starts with SyncTest), M7 online (ENet), M8 Steam, M9 determinism tools (when needed), M10 art, animation, and fighter authoring |
 | 2026-09-28 | M4 design agreed (section 12). Static fighter definition: `FighterDefinitionData` (names to review later). Shared transitions of `Actionable` states have priority over the state's own transitions. Down attack variant only in the air or on a platform |
+| 2026-09-28 | Fighters can turn in the air: `AirControl` (and `Free` in the air) sets the facing when the state has `CanTurn`. `Jump`, `DoubleJump`, and `Fall` have `CanTurn`. Attacks, `Locked`, and `Knockback` never turn. (This replaces the M2 rule "facing does not change in the air".) |
 
 ---
 
@@ -854,7 +856,12 @@ Each step stops for review.
    - `MatchRulesData.RestartDelayFrames` (default 120).
    - `WorldData.Round` (from 1). `WorldData.StartRound` is used by `Create` and by the restart: full health, idle state, new spawn positions from `Rng`. `Frame` never resets. `PrevInput` is kept, so a button held across the restart is not a new press.
    - The debug label shows the round and the phase.
-4. **Presentation.** State name label, hitbox and hurtbox debug drawing, health bars. Test in the running game.
+4. **Presentation.** State name label, hitbox and hurtbox debug drawing, health bars. Test in the running game. (Done.)
+   - `FighterView` draws the state name and state frame above the fighter, and (with `ShowCombatDebug` / F2) the active hurtboxes (green outline) and hitboxes (red). With the combat boxes on, the hurtbox outline replaces the body outline. An `Intangible` fighter (defeated) is drawn faded.
+   - With F2, a state progress bar above the fighter (48 x 4 px) for states with a fixed length: the state `Duration`, or `HitstunFrames` for the hitstun state. A thin red strip under the bar marks the frames with an active hitbox (startup, active, and recovery are visible before and after the hitbox appears).
+   - `HudView` (node `Hud` in `Match.tscn`, at (40, 612) in the floor area): one health bar for each active player in the player color, and "P1 wins" / "Draw" during `RoundOver`.
+   - `ShowCombatDebug` is on in `Match.tscn` until there is art.
+   - Checked in the running game with `Engine.TimeScale = 0.02` (to catch the hitbox frames in a screenshot).
 
 ### 12.13 Not in M4 (the design allows them later)
 
