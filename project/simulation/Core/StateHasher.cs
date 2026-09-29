@@ -50,6 +50,16 @@ public struct StateHasher
         }
     }
 
+    /// <summary>Adds the length, then each UTF-16 code unit. For static data (names), not for rollback state.</summary>
+    public void Add(string value)
+    {
+        Add(value.Length);
+        foreach (char c in value)
+        {
+            Add((ushort)c);
+        }
+    }
+
     public void Add(Fixed value) => Add(value.Raw);
 
     public void Add(FixedVector2 value)

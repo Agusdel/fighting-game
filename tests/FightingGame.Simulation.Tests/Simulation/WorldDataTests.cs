@@ -92,7 +92,7 @@ public class WorldDataTests
         for (int i = 0; i < GameConstants.MaxPlayers; i++)
         {
             WorldData changed = default;
-            changed.Fighters[i].ActionFrame = 1;
+            changed.Fighters[i].StateFrame = 1;
             Assert.NotEqual(baseline.ComputeHash(), changed.ComputeHash());
         }
     }

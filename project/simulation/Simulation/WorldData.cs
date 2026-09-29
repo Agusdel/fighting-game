@@ -51,18 +51,20 @@ public struct WorldData
         Span<FixedVector2> spawnPositions = stackalloc FixedVector2[GameConstants.MaxPlayers];
         SpawnPositionSelector.Select(stage, playerCount, ref state.Rng, spawnPositions);
 
+        FighterDefinitionData definition = data.FighterDefinition;
         Fixed centerX = (stage.Bounds.Min.X + stage.Bounds.Max.X) * Fixed.Half;
         for (int i = 0; i < playerCount; i++)
         {
-            state.Fighters[i] = new FighterData
+            ref FighterData fighter = ref state.Fighters[i];
+            fighter = new FighterData
             {
                 Active = true,
                 Position = spawnPositions[i],
                 Facing = (sbyte)(spawnPositions[i].X <= centerX ? 1 : -1),
-                Action = FighterAction.Idle,
                 Grounded = true,
-                JumpsLeft = data.Fighter.MaxJumps,
+                JumpsLeft = definition.Stats.MaxJumps,
             };
+            FighterStateMachine.EnterInitial(ref fighter, definition.IdleState, Simulator.CreateContext(fighter, InputFlags.None, data));
         }
         return state;
     }

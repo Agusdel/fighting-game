@@ -20,7 +20,7 @@ public class SimulatorTests
 
         Assert.Equal(start, world.Fighter().Position);
         Assert.True(world.Fighter().Grounded);
-        Assert.Equal(FighterAction.Idle, world.Fighter().Action);
+        Assert.Equal("Idle", world.StateName());
         Assert.Equal(120, world.State.Frame);
     }
 
@@ -32,10 +32,10 @@ public class SimulatorTests
 
         world.Run(10, InputFlags.Left);
 
-        Assert.Equal(startX - world.Data.Fighter.WalkSpeed * 10, world.Fighter().Position.X);
+        Assert.Equal(startX - world.Stats.WalkSpeed * 10, world.Fighter().Position.X);
         Assert.Equal(-1, world.Fighter().Facing);
-        Assert.Equal(FighterAction.Walk, world.Fighter().Action);
-        Assert.Equal(9, world.Fighter().ActionFrame);
+        Assert.Equal("Walk", world.StateName());
+        Assert.Equal(9, world.Fighter().StateFrame);
     }
 
     [Fact]
@@ -47,7 +47,7 @@ public class SimulatorTests
         world.Run(5);
 
         Assert.Equal(x, world.Fighter().Position.X);
-        Assert.Equal(FighterAction.Idle, world.Fighter().Action);
+        Assert.Equal("Idle", world.StateName());
     }
 
     [Fact]
@@ -75,26 +75,26 @@ public class SimulatorTests
     public void JumpHasJumpSquatThenRisesThenLandsOnTheFloor()
     {
         var world = new TestWorld();
-        int squat = world.Data.Fighter.JumpSquatFrames;
+        int squat = world.StateDuration("JumpSquat");
 
         world.Tick(InputFlags.Jump);
-        Assert.Equal(FighterAction.JumpSquat, world.Fighter().Action);
+        Assert.Equal("JumpSquat", world.StateName());
         world.Run(squat - 1, InputFlags.Jump);
-        Assert.Equal(FighterAction.JumpSquat, world.Fighter().Action);
+        Assert.Equal("JumpSquat", world.StateName());
         Assert.Equal(FloorY, world.Fighter().Position.Y);
 
         world.Tick(InputFlags.Jump);
-        Assert.Equal(FighterAction.Airborne, world.Fighter().Action);
+        Assert.Equal("Jump", world.StateName());
         Assert.True(world.Fighter().Position.Y < FloorY);
         Assert.Equal(1, world.Fighter().JumpsLeft);
 
         world.RunUntilGrounded();
         Assert.Equal(FloorY, world.Fighter().Position.Y);
-        Assert.Equal(FighterAction.Land, world.Fighter().Action);
-        Assert.Equal(world.Data.Fighter.MaxJumps, world.Fighter().JumpsLeft);
+        Assert.Equal("Land", world.StateName());
+        Assert.Equal(world.Stats.MaxJumps, world.Fighter().JumpsLeft);
 
-        world.Run(world.Data.Fighter.LandFrames);
-        Assert.Equal(FighterAction.Idle, world.Fighter().Action);
+        world.Run(world.StateDuration("Land"));
+        Assert.Equal("Idle", world.StateName());
     }
 
     [Fact]
@@ -120,7 +120,7 @@ public class SimulatorTests
         world.Tick();
         world.Tick(InputFlags.Jump);
         Assert.Equal(0, world.Fighter().JumpsLeft);
-        Assert.Equal(vyAfterDoubleJump + world.Data.Fighter.Gravity * 2, world.Fighter().Velocity.Y);
+        Assert.Equal(vyAfterDoubleJump + world.Stats.Gravity * 2, world.Fighter().Velocity.Y);
     }
 
     [Fact]
@@ -131,7 +131,7 @@ public class SimulatorTests
         // About 21 frames to reach the maximum speed; the fighter lands after about 43 frames.
         world.Run(25);
         Assert.False(world.Fighter().Grounded);
-        Assert.Equal(world.Data.Fighter.MaxFallSpeed, world.Fighter().Velocity.Y);
+        Assert.Equal(world.Stats.MaxFallSpeed, world.Fighter().Velocity.Y);
     }
 
     [Fact]
@@ -154,7 +154,7 @@ public class SimulatorTests
         world.RunUntilGrounded();
 
         Assert.Equal(PlatformY, world.Fighter().Position.Y);
-        Assert.Equal(FighterAction.Land, world.Fighter().Action);
+        Assert.Equal("Land", world.StateName());
     }
 
     [Fact]
@@ -184,13 +184,13 @@ public class SimulatorTests
         var world = new TestWorld();
         world.PlaceOnPlatform();
         Assert.Equal(PlatformY, world.Fighter().Position.Y);
-        Assert.Equal(FighterAction.Idle, world.Fighter().Action);
+        Assert.Equal("Idle", world.StateName());
 
         world.Tick(InputFlags.Down | InputFlags.Jump);
         world.Tick(InputFlags.Down | InputFlags.Jump);
 
         Assert.True(world.Fighter().Position.Y > PlatformY);
-        Assert.Equal(FighterAction.Airborne, world.Fighter().Action);
+        Assert.Equal("Fall", world.StateName());
         Assert.True(world.Fighter().Velocity.Y > Fixed.Zero, "A drop-through is not a jump.");
         Assert.Equal(1, world.Fighter().JumpsLeft);
 
@@ -203,7 +203,7 @@ public class SimulatorTests
     {
         var world = new TestWorld();
         world.Tick(InputFlags.Down | InputFlags.Jump);
-        Assert.Equal(FighterAction.JumpSquat, world.Fighter().Action);
+        Assert.Equal("JumpSquat", world.StateName());
     }
 
     [Fact]
@@ -218,7 +218,7 @@ public class SimulatorTests
         }
 
         Assert.False(world.Fighter().Grounded);
-        Assert.Equal(FighterAction.Airborne, world.Fighter().Action);
+        Assert.Equal("Fall", world.StateName());
         Assert.Equal(1, world.Fighter().JumpsLeft);
     }
 

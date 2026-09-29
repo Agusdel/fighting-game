@@ -13,9 +13,8 @@ Status: **Draft**. This document is the source of truth for the design. Update i
 Update this section at the end of each work session.
 
 - **Done:** M0, M1, M2, M3. `Match.tscn` loads `Stage01.tscn` (authored in the editor), converts it, and runs up to 4 fighters on it.
-- **Git:** M3 step 4 is not committed yet.
 - **Open in M3:** the piece scenes `StageSimpleStructure.tscn` and `StageSimplePlatform.tscn` wait for art. When art exists, turn off `ShowStageDebug` on the `Match` node.
-- **Next:** M4 (determinism tools: replay recording, replay viewer with slider, hash check, SyncTest). Design first, with the user.
+- **Next:** M4 (combat and fighter state machine), design agreed in section 12. Step 1 (state machine core) is done. Next is step 2 (combat).
 - **Later:** make fighter behavior data-driven (see section 6).
 - **Before the first public build:** create `scripts/export.sh` (see section 10).
 
@@ -289,7 +288,7 @@ Rules:
 |---|---|---|---|
 | — | None at this time | | |
 
-Planned rework (before or during M6): make fighter behavior data-driven. The M2 code uses a hard-coded `switch` on `FighterAction`. The goal is to define actions/states, animations, attack hitboxes, movement values, and input rules as data, so a new move does not need new simulation code.
+Planned rework (M4, section 12): make fighter behavior data-driven. The M2 code uses a hard-coded `switch` on `FighterAction`. The goal is to define actions/states, animations, attack hitboxes, movement values, and input rules as data, so a new move does not need new simulation code.
 
 ---
 
@@ -303,13 +302,13 @@ Each milestone must be runnable and testable before the next one starts.
 | M1 | Core math | `Fixed`, `FixedVector2`, `FixedAABB`, `FixedRng`, hash; unit tests pass. **Done 2026-09-25** |
 | M2 | Simulation core | One fighter moves, jumps, falls, collides with a hard-coded stage. State save/restore/hash works. Boxes drawn as rectangles. **Done 2026-09-26** (movement feel not yet checked by the user) |
 | M3 | Editor authoring | Stage authored in `Stage01.tscn` and converted to `StageData`. **Done 2026-09-27** (piece scenes wait for art) |
-| M4 | Determinism tools | Replay recording, replay viewer with slider, hash check, SyncTest mode |
+| M4 | Combat and fighter state machine | Data-driven fighter states, two attacks with direction variants, hitboxes, hurtboxes, damage, hitstun, knockback, hitstop (can be disabled), health bars, death and restart. Fair resolution (section 12) |
 | M5 | Local multiplayer | Main menu (local), lobby with device assignment, 2–4 local players |
-| M6 | Combat | Frame data, hitboxes, hurtboxes, damage, health bar, death and restart. Fair resolution |
-| M7 | Art and animation | Placeholder sprites driven by `Action` + `ActionFrame` |
-| M8 | Rollback (offline) | `RollbackSession` with `LoopbackTransport`: two sessions in one process with simulated latency and loss. No desync |
-| M9 | Online (ENet) | Host / Join, online lobby, online match over localhost/LAN. Desync detection |
-| M10 | Steam | `SteamTransport` |
+| M6 | Rollback (offline) | First step: SyncTest mode. Then `RollbackSession` with `LoopbackTransport`: two sessions in one process with simulated latency and loss. No desync |
+| M7 | Online (ENet) | Host / Join, online lobby, online match over localhost/LAN. Desync detection |
+| M8 | Steam | `SteamTransport` |
+| M9 | Determinism tools | Replay recording, replay viewer with slider, hash check, state diff. Only when needed (the unit tests already check determinism with hashes) |
+| M10 | Art, animation, and fighter authoring | Sprites and `AnimationPlayer` driven by `StateId` + `StateFrame`, VFX and sound timelines, fighter states authored in the editor with a frame viewer, stage piece scenes |
 
 ---
 
@@ -349,7 +348,7 @@ Rounding rules (tested):
 - Snapshot for rollback = struct copy (`WorldData copy = state;`). The ring buffer is `WorldData[]`. This is very fast.
 - Hash = explicit, field by field. Each state struct has a method `void Hash(ref StateHasher h)`.
   - Reason: a raw memory hash also reads the struct padding bytes. Padding bytes can contain different values on different machines. An explicit hash does not read them.
-  - The same field list is used for the state diff tool (M4).
+  - The same field list is used for the state diff tool (M9).
 - Unit test: every field of `FighterData` changes the hash (this catches a field that was not added to `Hash`).
 
 `FighterData` fields for M2:
@@ -457,6 +456,8 @@ public static class Simulator
 | 2026-09-27 | Renames: `WorldState` → `WorldData`, `FighterState` → `FighterData` (Data suffix for simulation data types; `FighterStats`, `FrameInput`, and enums keep their names). `SpawnSelector` → `SpawnPositionSelector`, `SpawnPair` → `SpawnPositionPair`, authoring `SpawnPoint` → `SpawnPosition`. "Spawn position" is the term everywhere |
 | 2026-09-27 | A stage has one or more single spawn positions (`SingleSpawnPositions`); an odd player count uses one at random |
 | 2026-09-27 | M3 done: `Match.tscn` loads its stage from a stage scene (`StageScene` export). The stage hash of `Stage01.tscn` equals the hash of the M2 stage |
+| 2026-09-28 | New milestone order: M4 combat and fighter state machine, M5 local multiplayer, M6 rollback (starts with SyncTest), M7 online (ENet), M8 Steam, M9 determinism tools (when needed), M10 art, animation, and fighter authoring |
+| 2026-09-28 | M4 design agreed (section 12). Static fighter definition: `FighterDefinitionData` (names to review later). Shared transitions of `Actionable` states have priority over the state's own transitions. Down attack variant only in the air or on a platform |
 
 ---
 
@@ -554,7 +555,7 @@ Spawn position selection at match start (`SpawnPositionSelector`, in the simulat
 Examples: 1 player → 1 random single. 2 players → 1 random pair. 3 players → 1 random pair + 1 random single. 4 players → 2 random pairs.
 Facing at the spawn position: toward the center of the stage `Bounds` (no change).
 
-The match restart (M6) runs the same selection again. `Rng` has advanced, so the spawn positions are different.
+The match restart (M4) runs the same selection again. `Rng` has advanced, so the spawn positions are different.
 
 ### 11.4 Exact values (integer pixels)
 
@@ -575,7 +576,7 @@ Converter rules:
 - `StageConverter` (in `project/src/Authoring/`): `StageData Convert(StageRoot root)`. It walks the tree depth-first in child order, and collects `StageCollisionBox`, `SpawnPositionPair`, and `SpawnPosition` nodes at any depth. The child order is saved in the `.tscn` file, so the result is the same on every machine.
 - Simulation changes (`project/simulation/`):
   - `StageData(FixedAABB[] solids, FixedAABB[] platforms, FixedVector2[] singleSpawnPositions, SpawnPositionPair[] spawnPositionPairs)`. `SpawnPositionPair` is a struct with two `FixedVector2` (`A`, `B`). This replaces `SpawnPoints`. The simulation type `SpawnPositionPair` is in namespace `FightingGame.Simulation`; the authoring node is `FightingGame.Authoring.SpawnPositionPair`.
-  - `StageData.ComputeHash()`: hash of all boxes and spawn positions. In M9, peers compare it when they connect.
+  - `StageData.ComputeHash()`: hash of all boxes and spawn positions. In M7, peers compare it when they connect.
   - `WorldData.Create` uses the spawn position selection in 11.3.
   - The hard-coded stage moves from `DefaultGameData` to the test project (`TestStages`). `DefaultGameData` keeps only the fighter stats.
 - Unit tests: spawn position selection (counts, no duplicate positions, deterministic for a seed, both positions of a pair used, all singles used over many seeds), `StageData` validation, hash.
@@ -636,3 +637,215 @@ Each step stops for review.
 - Resize handles in the viewport (needs an `EditorPlugin`). The first version uses the `Size` property in the Inspector.
 - Moving platforms or other stage state that changes during a match.
 - Other collision shapes (slopes, circles). The component design allows them, but each one also needs new fixed-point collision code in the simulation.
+
+---
+
+## 12. Detailed Design: M4 Combat and Fighter State Machine
+
+Status: **Agreed** (2026-09-28).
+
+### 12.1 Goals
+
+- Define any number of fighter states as data, with rules for the transitions between them.
+- Code hooks (`OnEnter`, `OnUpdate`, `OnExit`) for logic that data cannot express.
+- Two attacks with direction variants, hitboxes on selected frames, damage, hitstun, knockback, and hitstop.
+- Everything stays deterministic and rollback-safe.
+- The design must allow later: more attack buttons, charged attacks, projectiles, blocking, grabs, editor authoring, art.
+
+### 12.2 Rollback rule: a state is two numbers
+
+The current state of a fighter is not an object. It is two values in `FighterData`:
+
+- `StateId` (`ushort`): the index of the state in the character data.
+- `StateFrame` (`int`): frames since the state started (0 on the first frame).
+
+The state definitions are static data (like `StageData`): shared by all fighters, never changed during a match, not saved on rollback. A rollback restores `StateId` and `StateFrame`, and the fighter is again in the correct state, on the correct frame.
+
+`StateId` and `StateFrame` replace `Action` and `ActionFrame`. The `FighterAction` enum is removed.
+
+### 12.3 Static data types
+
+Names follow the `Data` suffix rule. Review the names later: `State` for mutable data and `Data` for static data was clearer, but `State` now means a state of the state machine.
+
+| Type | Content |
+|---|---|
+| `FighterDefinitionData` | The static definition of one playable character: `FighterStats`, `FighterStateData[] States`, shared transitions (12.5), default hurtboxes, and the ids of the states that the system needs (`Idle`, `Fall`, `Hitstun`, `Dead`, ...). `FighterData` is one fighter in a match; `FighterDefinitionData` is what it is made of. |
+| `FighterStateData` | One state. See below. |
+| `HitboxData` | Box (relative to the feet, defined for `Facing = +1`, mirrored for `-1`), active frames (from, to), damage, hitstun frames, knockback (velocity, facing-relative), hitstop frames. |
+| `HurtboxData` | Box (relative to the feet, mirrored by facing), active frames. |
+| `TransitionData` | Conditions (all must be true), target state, active frames (a "cancel window"). |
+| `ConditionData` | One condition: a type (enum) and a parameter. |
+| `FrameActionData` | An action at one frame, for example "set velocity (8, 0)", facing-relative. |
+| `MatchRulesData` | Match settings: `HitstopEnabled`, `RestartDelayFrames`. Part of `GameData`, so all peers use the same rules. |
+
+`GameData` gets `FighterDefinitionData Character` (in place of `FighterStats Fighter`) and `MatchRulesData Rules`.
+
+`FighterStateData`:
+
+```csharp
+public sealed class FighterStateData
+{
+    public string Name;                       // "Attack1Up": key for the animation, VFX, and sound
+    public int Duration;                      // 0 = no end (Idle, Walk, Fall)
+    public ushort NextState;                  // state after Duration ends
+    public MovementMode Movement;             // see 12.6
+    public StateFlags Flags;                  // Actionable, CanTurn, ArmoredAgainstHits, ...
+    public ushort? OnLanding;                 // target when the fighter lands (null = stay in this state)
+    public ushort? OnLeaveGround;             // target when the fighter leaves the ground without a jump (null = stay)
+    public HitboxData[] Hitboxes;
+    public HurtboxData[] Hurtboxes;           // empty = use the character default hurtboxes
+    public FrameActionData[] FrameActions;
+    public TransitionData[] Transitions;      // checked in order; the first match wins
+    public StateHook? OnEnter, OnUpdate, OnExit;
+}
+```
+
+States are built in C# with a small builder (code-first, see 12.11). The builder references states by name and resolves the names to ids.
+
+### 12.4 Hooks
+
+```csharp
+public delegate void StateHook(ref FighterData fighter, in StateContext context);
+public delegate bool StateCondition(in FighterData fighter, in StateContext context);
+// StateContext: input of this frame, FighterDefinitionData, StageData, MatchRulesData.
+```
+
+Rules for hooks (they keep the simulation deterministic):
+- A hook is a static method in the simulation library.
+- It reads and writes only the `FighterData` that it receives, and reads only static data.
+- It captures no mutable variables. It uses only fixed-point math.
+
+Data first, hooks only when data is not enough. `ConditionData` has a `Custom` type that calls a `StateCondition` for special conditions.
+
+`FighterData` gets 4 generic values for hooks: `StateVar0` to `StateVar3` (`int`), reset to 0 when a state starts. Example: a charged attack stores the charge time in `StateVar0`. So new mechanics do not need new `FighterData` fields.
+
+### 12.5 Transitions
+
+"Actionable" means: the fighter is free to start a new action (jump, attack). `Idle`, `Walk`, `Jump`, `DoubleJump`, and `Fall` are actionable. Busy states (`JumpSquat`, `Land`, attacks, `Hitstun`, `Dead`) are not.
+
+Order of checks in the state update (each fighter, phase 1):
+1. **Duration end:** if `Duration > 0` and `StateFrame >= Duration`, go to `NextState`.
+2. **Shared transitions:** if the (new) state has the flag `Actionable`, the shared ground list (if grounded) or air list (if not grounded) of the fighter definition. Example: "Jump pressed → `JumpSquat`", "Attack1 pressed + Up held → `Attack1Up`". So common rules are written once.
+3. **State transitions:** the `Transitions` of the current state, in order.
+
+The first transition with all conditions true (and inside its frame window) wins. Shared rules come before the state rules, so an action (jump, attack) has priority over a simple movement change (`Idle` → `Walk`) on the same frame. At most one transition happens per tick: the duration end, or else one rule transition. (Reason: after `JumpSquat` ends, `Grounded` is still true from the last collision, so the new `Jump` state would use the ground list.) A button pressed on exactly the frame when a timed state ends is not seen; an input buffer can fix this later. A transition to the current state restarts it.
+
+Condition types (first version): `InputPressed(button)`, `InputHeld(button)`, `InputReleased(button)`, `DirectionHeld(Up | Down | Forward | Back | None)`, `Grounded`, `Airborne`, `OnPlatform`, `VelocityYDown`, `JumpsLeft`, `Custom`. `InputReleased` and `InputHeld` allow charged attacks later.
+
+Ground and air changes are not transitions in the list: they happen in the movement phase (after the collision), with `OnLanding` and `OnLeaveGround`. So a landing changes the state on the same frame (the M2 behavior).
+
+Being hit is not a state rule either. The hit phase forces the change to `Hitstun` (12.8), unless the state has the flag `ArmoredAgainstHits`. So no state can forget it.
+
+### 12.6 Movement modes
+
+| Mode | Effect |
+|---|---|
+| `GroundControl` | Walk input sets the X speed (M2 walk). |
+| `AirControl` | Air acceleration and friction (M2 air control). |
+| `Free` | `GroundControl` when grounded, `AirControl` when airborne. For states that work in both places (`Attack1*`). |
+| `Locked` | No control. On the ground the X speed goes to 0. In the air the fighter keeps its momentum. |
+| `Knockback` | No control. Friction only (ground friction or air friction). For `Hitstun`. |
+
+Gravity applies in all modes (a future flag can switch it off, for example for a hover).
+
+### 12.7 Fighter states (first version)
+
+| State | Duration | Movement | Notes |
+|---|---|---|---|
+| `Idle` | 0 | `GroundControl` | Actionable. Direction → `Walk`. `OnLeaveGround` → `Fall`. |
+| `Walk` | 0 | `GroundControl` | Actionable. No direction → `Idle`. `OnLeaveGround` → `Fall`. |
+| `JumpSquat` | 3 | `Locked` | → `Jump` (with the jump velocity, one jump used). Down + Jump on a platform: drop-through (as in M2). |
+| `Jump` | 0 | `AirControl` | Actionable (air). `VelocityYDown` → `Fall`. `OnLanding` → `Land`. |
+| `DoubleJump` | 0 | `AirControl` | Actionable (air). Same as `Jump` (own state for its own animation). |
+| `Fall` | 0 | `AirControl` | Actionable (air). `OnLanding` → `Land`. |
+| `Land` | 3 | `Locked` | → `Idle`. |
+| `Attack1Forward/Up/Down` | short (for example 18) | `Free` | Light attack: fast, weak. Hitbox in front, above, or below. |
+| `Attack2Forward/Up/Down` | long (for example 36) | `Locked` | Heavy attack: slow, strong. Hitbox in front, above, or below. |
+| `Hitstun` | from the hit | `Knockback` | → `Idle` or `Fall` when it ends. |
+| `Dead` | 0 | `Locked` | No hurtbox. No transitions. |
+
+Attack rules:
+- Direction when the attack starts: Up held → `Up` variant; Down held **in the air or on a platform** → `Down` variant; otherwise `Forward`. Up and Down together → `Forward`.
+- Down on solid ground gives the `Forward` variant (there is no crouch or low attack yet).
+- All attack states work on the ground and in the air. A landing during an attack does not end it (`OnLanding` is null). A fall from a platform does not end it (`OnLeaveGround` is null).
+- `CanTurn` is off during attacks: the fighter can walk backward during `Attack1*`, but it keeps its facing, so the hitbox does not flip.
+- Cancel windows (for example `Attack1` → `Attack2`) are possible with transitions, but not in the first version.
+
+Inputs: `InputFlags.Attack` is replaced by `Attack1` and `Attack2`. Keyboard maps: `Wasd`: J = `Attack1`, K = `Attack2`. `Arrows`: keypad 0 = `Jump`, keypad 1 = `Attack1`, keypad 2 = `Attack2`. `InputFlags` has 10 free bits for more buttons.
+
+### 12.8 Combat
+
+`FighterData` new fields: `Health`, `HitstopFrames`, `HitstunFrames` (the duration of the current hitstun), `HitTargets` (bitmask of fighters hit by the current attack), `StateVar0`–`StateVar3`.
+
+`FighterStats` new field: `MaxHealth` (for example 100).
+
+Hit detection (phase 3), for every pair (attacker, target), attacker ≠ target:
+- Active hitboxes of the attacker on its current `StateFrame`, mirrored by its facing.
+- Active hurtboxes of the target (the state hurtboxes, or the character default).
+- A target that is `Dead`, or already in the attacker's `HitTargets`, cannot be hit.
+- If more than one hitbox of the attacker overlaps, the first hitbox in the array wins.
+- The result is a hit list. Nothing changes in this phase.
+
+Hit resolution (phase 4), for each hit in the list, all at the same time:
+- Target: `Health -= Damage`. `Velocity = Knockback` (X mirrored by the attacker facing). Change to `Hitstun` with `HitstunFrames`, unless the state is `ArmoredAgainstHits` (then only damage).
+- Attacker: add the target to `HitTargets`.
+- Hitstop: attacker and target get `HitstopFrames = max(current, hitbox value)`, if `MatchRulesData.HitstopEnabled`.
+- Two fighters can hit each other on the same frame (a trade): both hits apply.
+- If `Health <= 0`: change to `Dead`.
+
+Hitstop:
+- While `HitstopFrames > 0`, the fighter does not move, its `StateFrame` does not advance, and its transitions do not run. `HitstopFrames` counts down by 1 per frame.
+- `PrevInput` is not updated during hitstop. So a button pressed during hitstop is still detected as "pressed" on the first frame after it (a small input buffer).
+- `MatchRulesData.HitstopEnabled = false` switches it off.
+
+`HitTargets` resets to 0 when a new state starts. So one attack hits each target once. A multi-hit attack later can reset it with a frame action.
+
+### 12.9 Match rules (phase 5)
+
+- `MatchPhase`: `Fighting` → `RoundOver` → (restart) `Fighting`.
+- `Fighting` → `RoundOver`: when at most one fighter is alive (with 2 or more players). With 1 player, the round ends only if that fighter dies (not possible yet).
+- `RoundOver` lasts `RestartDelayFrames` (for example 120). Fighters keep running their states, so the winner can move.
+- Restart: all active fighters get full health and `Idle`, new spawn positions from `SpawnPositionSelector` (the `Rng` has advanced, so the positions change). `Frame` does not reset (it always increases, for rollback and replays). `WorldData` gets a `Round` counter.
+
+### 12.10 Presentation
+
+The presentation reads the state and never gets commands from the simulation.
+
+- `FighterView` shows the state name and the `StateFrame` above the fighter (until there is art).
+- Debug drawing (F2): hurtboxes and active hitboxes of each fighter.
+- HUD: one health bar for each active player.
+- Animation later (M10): the view reads `(StateId, StateFrame)`, finds the animation by the state `Name`, and seeks the `AnimationPlayer` to that frame each render. It never lets the animation play on its own clock. After a rollback, the next render is correct.
+- VFX and sound later (M10): a presentation timeline for each state name ("frame 4: play sound X"). The view fires the events between the last rendered frame and the new one. A filter keyed by (fighter, state start frame, event) prevents most duplicates after a rollback.
+
+### 12.11 Authoring
+
+1. **M4: code-first.** Characters are built in C# with a builder (in the simulation library). The format changes often during the first combat work; code is fast to change and to test.
+2. **M10: editor authoring**, the same pattern as the stage: a character scene with one node for each state and hitbox child nodes with frame ranges, next to the sprite and `AnimationPlayer`. An editor tool with a frame slider shows the sprite and the active boxes on each frame. A converter produces the same `FighterDefinitionData`. Hooks are referenced by name, from a fixed read-only registry.
+
+`FighterDefinitionData` gets `ComputeHash()` (like `StageData`), so peers can compare it in M7.
+
+### 12.12 Implementation steps
+
+Each step stops for review.
+
+1. **State machine core.** `FighterDefinitionData`, `FighterStateData`, transitions, conditions, movement modes, hooks, builder. Convert the M2 movement (`Idle`, `Walk`, `JumpSquat`, `Jump`, `DoubleJump`, `Fall`, `Land`) to it. The M2 movement tests must still pass (with the new state names). (Done. All M2 movement tests pass without a change of what they check. 28 new tests for the state machine rules and the definition hash.)
+   - Files: `FighterStateData.cs` (state data, transitions, conditions, frame actions, enums), `StateHooks.cs` (hook delegates, `StateContext`), `FighterDefinitionData.cs`, `FighterDefinitionBuilder.cs`, `FighterStateMachine.cs` (phase 1), `FighterMovement.cs` (movement modes, collision, landing / leave ground), `DefaultGameData.CreateFighterDefinition()`.
+   - `GameData.Fighter` (`FighterStats`) is replaced by `GameData.FighterDefinition`; the stats are `FighterDefinition.Stats`.
+   - `JumpSquatFrames` and `LandFrames` are removed from `FighterStats`: they are the `Duration` of the `JumpSquat` and `Land` states.
+   - Drop-through is a state (`PlatformDrop`) with a `StartDropThrough` frame action; its `OnLeaveGround` is `Fall`.
+   - `JumpSquat` uses `MovementMode.None`, so the fighter keeps its walk momentum into the jump (as in M2).
+   - The jump count is independent of the states: landing sets `JumpsLeft = MaxJumps`; leaving the ground limits it to `MaxJumps - 1` (a jump uses its jump before it leaves the ground).
+   - `PrevInput` is stored at the end of the tick (a new last phase), so phase 1 and phase 2 see the same pressed and released buttons.
+   - `MovementMode.Knockback` uses the air friction for now (step 2 can add a ground friction).
+2. **Combat.** Input `Attack1`/`Attack2`, attack states, hitboxes, hurtboxes, health, hitstun, knockback, hit registry, simultaneous resolution, hitstop. Tests: hit, no double hit, trade, slot order does not change the result, hitstop on and off, armor flag.
+3. **Death and restart.** `Dead`, `MatchPhase.RoundOver`, restart with new spawn positions. Tests.
+4. **Presentation.** State name label, hitbox and hurtbox debug drawing, health bars. Test in the running game.
+
+### 12.13 Not in M4 (the design allows them later)
+
+- Projectiles: a fixed-size projectile array in `WorldData` (no allocation, rollback-safe). They need their own design.
+- Charged attacks: `InputHeld`/`InputReleased` conditions and `StateVar0`–`StateVar3` already allow them.
+- Blocking or shields, grabs: new states, flags, and hit rules.
+- Cancel windows between attacks: transitions with frame windows already allow them.
+- Knockback that scales with damage.
+- An input buffer (a press stays valid for a few frames), so a press on the last frame of a busy state is not lost.

@@ -10,7 +10,7 @@ namespace FightingGame.Simulation;
 public sealed class GameData
 {
     public required StageData Stage { get; init; }
-    public required FighterStats Fighter { get; init; }
+    public required FighterDefinitionData FighterDefinition { get; init; }
 }
 
 /// <summary>Two spawn positions (feet) at opposite places on the stage. They do not need to be exact mirrors.</summary>
@@ -144,17 +144,27 @@ public sealed class FighterStats
     /// <summary>Vertical velocity at the start of a jump. Negative, because Y points down.</summary>
     public required Fixed JumpVelocity { get; init; }
 
-    /// <summary>Frames on the ground before a ground jump starts.</summary>
-    public required int JumpSquatFrames { get; init; }
-
-    /// <summary>Frames of <see cref="FighterAction.Land"/> after landing.</summary>
-    public required int LandFrames { get; init; }
 
     /// <summary>Total jumps before landing again (1 ground jump + air jumps).</summary>
     public required byte MaxJumps { get; init; }
 
     /// <summary>Frames the fighter ignores one-way platforms after a drop-through.</summary>
     public required int DropThroughFrames { get; init; }
+
+    /// <summary>Adds every value. When you add a property to this class, add it here too.</summary>
+    public void Hash(ref StateHasher hasher)
+    {
+        hasher.Add(CollisionBoxSize);
+        hasher.Add(WalkSpeed);
+        hasher.Add(AirSpeed);
+        hasher.Add(AirAcceleration);
+        hasher.Add(AirFriction);
+        hasher.Add(Gravity);
+        hasher.Add(MaxFallSpeed);
+        hasher.Add(JumpVelocity);
+        hasher.Add(MaxJumps);
+        hasher.Add(DropThroughFrames);
+    }
 
     /// <summary>The collision box for a fighter with its feet at <paramref name="feet"/>.</summary>
     public FixedAABB CollisionBoxAt(FixedVector2 feet)

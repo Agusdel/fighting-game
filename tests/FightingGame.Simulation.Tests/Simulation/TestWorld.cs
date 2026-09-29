@@ -6,7 +6,7 @@ namespace FightingGame.Simulation.Tests.Simulation;
 /// <summary>A match on the default test stage, and helpers to run ticks in tests.</summary>
 internal sealed class TestWorld
 {
-    public readonly GameData Data = TestStages.CreateGameData();
+    public readonly GameData Data;
     public WorldData State;
 
     /// <summary>
@@ -21,8 +21,12 @@ internal sealed class TestWorld
         new(702, 600),
     };
 
-    public TestWorld(int playerCount = 1, ulong seed = 1)
+    /// <param name="definition">The fighter definition. Null = the default fighter.</param>
+    public TestWorld(int playerCount = 1, ulong seed = 1, FighterDefinitionData? definition = null)
     {
+        Data = definition == null
+            ? TestStages.CreateGameData()
+            : new GameData { Stage = TestStages.CreateDefault(), FighterDefinition = definition };
         State = WorldData.Create(Data, playerCount, seed);
         for (int i = 0; i < playerCount; i++)
         {
@@ -33,6 +37,20 @@ internal sealed class TestWorld
     }
 
     public ref FighterData Fighter(int slot = 0) => ref State.Fighters[slot];
+
+    public FighterStats Stats => Data.FighterDefinition.Stats;
+
+    /// <summary>The name of the current state of a fighter.</summary>
+    public string StateName(int slot = 0) => Data.FighterDefinition.States[State.Fighters[slot].StateId].Name;
+
+    public int StateDuration(string state) => Data.FighterDefinition.States[Data.FighterDefinition.FindState(state)].Duration;
+
+    /// <summary>Changes the state of a fighter directly (with the enter and exit hooks), for test setup.</summary>
+    public void EnterState(string state, int slot = 0)
+    {
+        ref FighterData fighter = ref Fighter(slot);
+        FighterStateMachine.Enter(ref fighter, Data.FighterDefinition.FindState(state), Simulator.CreateContext(fighter, InputFlags.None, Data));
+    }
 
     /// <summary>Runs <paramref name="frames"/> ticks with the same input for player 0 and no input for the others.</summary>
     public void Run(int frames, InputFlags player0 = InputFlags.None)
@@ -72,7 +90,7 @@ internal sealed class TestWorld
         fighter.Position = feet;
         fighter.Velocity = velocity;
         fighter.Grounded = false;
-        fighter.SetAction(FighterAction.Airborne);
+        EnterState("Fall");
         fighter.JumpsLeft = 1;
     }
 
@@ -82,6 +100,6 @@ internal sealed class TestWorld
         FixedAABB platform = Data.Stage.Platforms[0];
         PlaceInAir(new FixedVector2(576, platform.Min.Y - 1), FixedVector2.Zero);
         RunUntilGrounded();
-        Run(Data.Fighter.LandFrames + 1);
+        Run(StateDuration("Land") + 1);
     }
 }

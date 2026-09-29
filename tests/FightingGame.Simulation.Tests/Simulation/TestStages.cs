@@ -43,10 +43,10 @@ internal static class TestStages
         return new StageData(solids, platforms, singleSpawnPositions, spawnPositionPairs);
     }
 
-    /// <summary>Game data with <see cref="CreateDefault"/> and the default fighter stats.</summary>
+    /// <summary>Game data with <see cref="CreateDefault"/> and the default fighter definition.</summary>
     public static GameData CreateGameData() => new()
     {
         Stage = CreateDefault(),
-        Fighter = DefaultGameData.CreateFighterStats(),
+        FighterDefinition = DefaultGameData.CreateFighterDefinition(),
     };
 }

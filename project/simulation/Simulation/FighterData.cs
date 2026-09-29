@@ -3,17 +3,6 @@ using FightingGame.Core;
 
 namespace FightingGame.Simulation;
 
-public enum FighterAction : byte
-{
-    Idle,
-    Walk,
-    /// <summary>Short crouch on the ground before a ground jump.</summary>
-    JumpSquat,
-    Airborne,
-    /// <summary>Short recovery after landing. The fighter cannot act.</summary>
-    Land,
-}
-
 /// <summary>
 /// The rollback state of one fighter. Plain value data only: it is copied for snapshots and hashed field by field.
 /// Everything the simulation remembers about a fighter between frames must be in this struct.
@@ -32,10 +21,20 @@ public struct FighterData
     /// <summary>-1 (left) or +1 (right).</summary>
     public sbyte Facing;
 
-    public FighterAction Action;
+    /// <summary>The current state: an index into <see cref="FighterDefinitionData.States"/>.</summary>
+    public ushort StateId;
 
-    /// <summary>Frames since <see cref="Action"/> started. 0 on the first frame of the action.</summary>
-    public int ActionFrame;
+    /// <summary>Frames since the current state started. 0 on the first frame of the state.</summary>
+    public int StateFrame;
+
+    /// <summary>
+    /// General values for state hooks (for example the charge time of a charged attack).
+    /// They reset to 0 when a state starts.
+    /// </summary>
+    public int StateVar0;
+    public int StateVar1;
+    public int StateVar2;
+    public int StateVar3;
 
     /// <summary>True if the fighter stands on a solid or a platform after the last movement.</summary>
     public bool Grounded;
@@ -49,16 +48,6 @@ public struct FighterData
     /// <summary>The input of the previous frame. Used to detect buttons pressed on this frame.</summary>
     public InputFlags PrevInput;
 
-    /// <summary>Changes the action. <see cref="ActionFrame"/> restarts only if the action is different.</summary>
-    public void SetAction(FighterAction action)
-    {
-        if (Action != action)
-        {
-            Action = action;
-            ActionFrame = 0;
-        }
-    }
-
     /// <summary>Adds every field. When you add a field to this struct, add it here too (a unit test checks this).</summary>
     public readonly void Hash(ref StateHasher hasher)
     {
@@ -66,8 +55,12 @@ public struct FighterData
         hasher.Add(Position);
         hasher.Add(Velocity);
         hasher.Add(Facing);
-        hasher.Add((byte)Action);
-        hasher.Add(ActionFrame);
+        hasher.Add(StateId);
+        hasher.Add(StateFrame);
+        hasher.Add(StateVar0);
+        hasher.Add(StateVar1);
+        hasher.Add(StateVar2);
+        hasher.Add(StateVar3);
         hasher.Add(Grounded);
         hasher.Add(DropThroughTimer);
         hasher.Add(JumpsLeft);

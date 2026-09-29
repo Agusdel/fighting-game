@@ -59,7 +59,7 @@ public partial class MatchRunner : Node2D
         _data = new GameData
         {
             Stage = stage,
-            Fighter = DefaultGameData.CreateFighterStats(),
+            FighterDefinition = DefaultGameData.CreateFighterDefinition(),
         };
         _world = WorldData.Create(_data, PlayerCount, Seed);
 
@@ -164,7 +164,7 @@ public partial class MatchRunner : Node2D
     {
         for (int i = 0; i < _fighterViews.Length; i++)
         {
-            _fighterViews[i].Refresh(_world.Fighters[i], _data.Fighter);
+            _fighterViews[i].Refresh(_world.Fighters[i], _data.FighterDefinition.Stats);
         }
 
         if (DebugLabel != null)
@@ -172,7 +172,7 @@ public partial class MatchRunner : Node2D
             ref readonly FighterData f = ref _world.Fighters[0];
             DebugLabel.Text =
                 $"Frame {_world.Frame}   Hash {_world.ComputeHash():X16}\n" +
-                $"P1 {f.Action} ({f.ActionFrame})  Pos {f.Position}  Vel {f.Velocity}\n" +
+                $"P1 {_data.FighterDefinition.States[f.StateId].Name} ({f.StateFrame})  Pos {f.Position}  Vel {f.Velocity}\n" +
                 $"Grounded {f.Grounded}  Jumps {f.JumpsLeft}  Drop {f.DropThroughTimer}";
         }
     }
