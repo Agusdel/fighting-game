@@ -12,7 +12,10 @@ public enum MovementMode : byte
     /// <summary>Walk input sets the horizontal speed. With <see cref="StateFlags.CanTurn"/>, the input also sets the facing.</summary>
     GroundControl,
 
-    /// <summary>Horizontal air acceleration while a direction is held, air friction otherwise.</summary>
+    /// <summary>
+    /// Horizontal air acceleration while a direction is held, air friction otherwise.
+    /// With <see cref="StateFlags.CanTurn"/>, the input also sets the facing.
+    /// </summary>
     AirControl,
 
     /// <summary><see cref="GroundControl"/> when grounded, <see cref="AirControl"/> when airborne.</summary>
@@ -36,7 +39,11 @@ public enum StateFlags : ushort
     /// </summary>
     Actionable = 1 << 0,
 
-    /// <summary>Movement input can change the facing (with <see cref="MovementMode.GroundControl"/> or <see cref="MovementMode.Free"/> on the ground).</summary>
+    /// <summary>
+    /// Movement input can change the facing, on the ground and in the air. Only the modes with control use it
+    /// (<see cref="MovementMode.GroundControl"/>, <see cref="MovementMode.AirControl"/>, <see cref="MovementMode.Free"/>);
+    /// <see cref="MovementMode.Locked"/> and <see cref="MovementMode.Knockback"/> never turn.
+    /// </summary>
     CanTurn = 1 << 1,
 
     /// <summary>A hit does damage, but does not force the change to hitstun.</summary>

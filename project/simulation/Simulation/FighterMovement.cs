@@ -18,7 +18,7 @@ public static class FighterMovement
                 GroundControl(ref fighter, direction, canTurn, stats);
                 break;
             case MovementMode.AirControl:
-                AirControl(ref fighter, direction, stats);
+                AirControl(ref fighter, direction, canTurn, stats);
                 break;
             case MovementMode.Free:
                 if (fighter.Grounded)
@@ -27,7 +27,7 @@ public static class FighterMovement
                 }
                 else
                 {
-                    AirControl(ref fighter, direction, stats);
+                    AirControl(ref fighter, direction, canTurn, stats);
                 }
                 break;
             case MovementMode.Locked:
@@ -131,8 +131,13 @@ public static class FighterMovement
         fighter.Velocity = fighter.Velocity.WithX(stats.WalkSpeed * direction);
     }
 
-    private static void AirControl(ref FighterData fighter, int direction, FighterStats stats)
+    private static void AirControl(ref FighterData fighter, int direction, bool canTurn, FighterStats stats)
     {
+        if (direction != 0 && canTurn)
+        {
+            fighter.Facing = (sbyte)direction;
+        }
+
         Fixed vx = direction != 0
             ? Fixed.Clamp(fighter.Velocity.X + stats.AirAcceleration * direction, -stats.AirSpeed, stats.AirSpeed)
             : ApplyFriction(fighter.Velocity.X, stats.AirFriction);

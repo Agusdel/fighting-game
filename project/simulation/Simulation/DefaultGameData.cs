@@ -21,7 +21,9 @@ public static class DefaultGameData
 
         builder.DefaultHurtbox(Box(-24, -96, 24, 0));
 
+        // Free states can act and turn. Busy states (jump squat, land, attacks, hitstun) cannot turn.
         const StateFlags FreeOnGround = StateFlags.Actionable | StateFlags.CanTurn;
+        const StateFlags FreeInAir = StateFlags.Actionable | StateFlags.CanTurn;
 
         builder.State("Idle", s => s
             .Movement(MovementMode.GroundControl)
@@ -43,21 +45,21 @@ public static class DefaultGameData
 
         builder.State("Jump", s => s
             .Movement(MovementMode.AirControl)
-            .Flags(StateFlags.Actionable)
+            .Flags(FreeInAir)
             .FrameAction(0, FrameActionType.Jump)
             .OnLanding("Land")
             .Transition("Fall", ConditionData.VelocityYDown));
 
         builder.State("DoubleJump", s => s
             .Movement(MovementMode.AirControl)
-            .Flags(StateFlags.Actionable)
+            .Flags(FreeInAir)
             .FrameAction(0, FrameActionType.Jump)
             .OnLanding("Land")
             .Transition("Fall", ConditionData.VelocityYDown));
 
         builder.State("Fall", s => s
             .Movement(MovementMode.AirControl)
-            .Flags(StateFlags.Actionable)
+            .Flags(FreeInAir)
             .OnLanding("Land"));
 
         // Short recovery after landing. The fighter cannot act.
