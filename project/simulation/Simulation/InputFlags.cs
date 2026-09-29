@@ -14,7 +14,14 @@ public enum InputFlags : ushort
     Up = 1 << 2,
     Down = 1 << 3,
     Jump = 1 << 4,
-    Attack = 1 << 5,
+
+    /// <summary>Light attack: fast and weak.</summary>
+    Attack1 = 1 << 5,
+
+    /// <summary>Heavy attack: slow and strong.</summary>
+    Attack2 = 1 << 6,
+
+    // Bits 7 to 15 are free for more buttons.
 }
 
 public static class InputFlagsExtensions

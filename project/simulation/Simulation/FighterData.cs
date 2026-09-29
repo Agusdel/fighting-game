@@ -48,6 +48,17 @@ public struct FighterData
     /// <summary>The input of the previous frame. Used to detect buttons pressed on this frame.</summary>
     public InputFlags PrevInput;
 
+    public int Health;
+
+    /// <summary>While greater than 0, the fighter is frozen (hitstop): no state update, no movement, no new input.</summary>
+    public int HitstopFrames;
+
+    /// <summary>The hitstun time of the last hit, in frames.</summary>
+    public int HitstunFrames;
+
+    /// <summary>Bit i = the current attack already hit the fighter in slot i. Resets when a new state starts.</summary>
+    public byte HitTargets;
+
     /// <summary>Adds every field. When you add a field to this struct, add it here too (a unit test checks this).</summary>
     public readonly void Hash(ref StateHasher hasher)
     {
@@ -65,6 +76,10 @@ public struct FighterData
         hasher.Add(DropThroughTimer);
         hasher.Add(JumpsLeft);
         hasher.Add((ushort)PrevInput);
+        hasher.Add(Health);
+        hasher.Add(HitstopFrames);
+        hasher.Add(HitstunFrames);
+        hasher.Add(HitTargets);
     }
 }
 

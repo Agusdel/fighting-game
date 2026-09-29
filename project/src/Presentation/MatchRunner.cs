@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text;
 using FightingGame.Authoring;
 using FightingGame.Core;
 using FightingGame.Simulation;
@@ -78,6 +80,13 @@ public partial class MatchRunner : Node2D
             _fighterViews[i] = view;
         }
 
+        if (DebugLabel != null)
+        {
+            // A monospace font keeps the fixed-width numbers of the debug text in columns.
+            DebugLabel.AddThemeFontOverride("font", new SystemFont { FontNames = new[] { "monospace" } });
+            DebugLabel.AddThemeFontSizeOverride("font_size", 13);
+        }
+
         RefreshViews();
     }
 
@@ -113,6 +122,38 @@ public partial class MatchRunner : Node2D
             RefreshViews();
         }
     }
+
+    /// <summary>
+    /// Debug text: one line for each value, numbers with a fixed width. With the monospace font of the label,
+    /// the columns do not move when the values change.
+    /// </summary>
+    private string BuildDebugText()
+    {
+        var text = new StringBuilder();
+        text.AppendLine($"Frame {_world.Frame,8}   Hash {_world.ComputeHash():X16}");
+        for (int i = 0; i < GameConstants.MaxPlayers; i++)
+        {
+            ref readonly FighterData f = ref _world.Fighters[i];
+            if (!f.Active)
+            {
+                continue;
+            }
+
+            string state = _data.FighterDefinition.States[f.StateId].Name;
+            text.AppendLine();
+            text.AppendLine($"P{i + 1}  {state,-16} frame {f.StateFrame,5}");
+            text.AppendLine($"    Position  {FormatVector(f.Position)}");
+            text.AppendLine($"    Velocity  {FormatVector(f.Velocity)}");
+            text.AppendLine($"    Health {f.Health,4}   Grounded {(f.Grounded ? "yes" : "no "),-3}   Jumps {f.JumpsLeft}   Hitstop {f.HitstopFrames,2}");
+        }
+        return text.ToString();
+    }
+
+    private static string FormatVector(FixedVector2 value) => $"({Format(value.X)}, {Format(value.Y)})";
+
+    /// <summary>Two decimals, right-aligned to 8 characters. For display only.</summary>
+    private static string Format(Fixed value) =>
+        value.ToFloat().ToString("0.00", CultureInfo.InvariantCulture).PadLeft(8);
 
     /// <summary>
     /// Adds the stage scene as the first child (so it draws behind the fighters) and converts it to stage data.
@@ -169,11 +210,7 @@ public partial class MatchRunner : Node2D
 
         if (DebugLabel != null)
         {
-            ref readonly FighterData f = ref _world.Fighters[0];
-            DebugLabel.Text =
-                $"Frame {_world.Frame}   Hash {_world.ComputeHash():X16}\n" +
-                $"P1 {_data.FighterDefinition.States[f.StateId].Name} ({f.StateFrame})  Pos {f.Position}  Vel {f.Velocity}\n" +
-                $"Grounded {f.Grounded}  Jumps {f.JumpsLeft}  Drop {f.DropThroughTimer}";
+            DebugLabel.Text = BuildDebugText();
         }
     }
 }

@@ -63,6 +63,7 @@ public struct WorldData
                 Facing = (sbyte)(spawnPositions[i].X <= centerX ? 1 : -1),
                 Grounded = true,
                 JumpsLeft = definition.Stats.MaxJumps,
+                Health = definition.Stats.MaxHealth,
             };
             FighterStateMachine.EnterInitial(ref fighter, definition.IdleState, Simulator.CreateContext(fighter, InputFlags.None, data));
         }

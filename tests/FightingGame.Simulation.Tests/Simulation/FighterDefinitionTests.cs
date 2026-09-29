@@ -88,19 +88,7 @@ public class FighterDefinitionTests
     public void StatsChangeTheHash()
     {
         FighterStats stats = DefaultGameData.CreateFighterStats();
-        FighterStats faster = new()
-        {
-            CollisionBoxSize = stats.CollisionBoxSize,
-            WalkSpeed = stats.WalkSpeed + 1,
-            AirSpeed = stats.AirSpeed,
-            AirAcceleration = stats.AirAcceleration,
-            AirFriction = stats.AirFriction,
-            Gravity = stats.Gravity,
-            MaxFallSpeed = stats.MaxFallSpeed,
-            JumpVelocity = stats.JumpVelocity,
-            MaxJumps = stats.MaxJumps,
-            DropThroughFrames = stats.DropThroughFrames,
-        };
+        FighterStats faster = stats with { WalkSpeed = stats.WalkSpeed + 1 };
 
         ulong Hash(FighterStats s) =>
             new FighterDefinitionBuilder(s) { IdleState = "Idle" }.State("Idle", Empty).Build().ComputeHash();

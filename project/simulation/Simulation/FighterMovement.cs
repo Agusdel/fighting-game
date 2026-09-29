@@ -37,7 +37,8 @@ public static class FighterMovement
                 }
                 break;
             case MovementMode.Knockback:
-                fighter.Velocity = fighter.Velocity.WithX(ApplyFriction(fighter.Velocity.X, stats.AirFriction));
+                Fixed friction = fighter.Grounded ? stats.GroundFriction : stats.AirFriction;
+                fighter.Velocity = fighter.Velocity.WithX(ApplyFriction(fighter.Velocity.X, friction));
                 break;
             case MovementMode.None:
                 break;

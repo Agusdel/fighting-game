@@ -24,6 +24,16 @@ public sealed class FighterDefinitionData
     /// <summary>The state of a fighter when it spawns.</summary>
     public required ushort IdleState { get; init; }
 
+    /// <summary>The state after a hit. <see cref="FighterStateData.NoState"/> = hits do damage only.</summary>
+    public required ushort HitstunState { get; init; }
+
+    /// <summary>The hurtboxes of states that do not define their own.</summary>
+    public required HurtboxData[] DefaultHurtboxes { get; init; }
+
+    /// <summary>The hurtboxes of a state (its own, or the default ones).</summary>
+    public HurtboxData[] HurtboxesOf(FighterStateData state) =>
+        state.Hurtboxes.Length > 0 ? state.Hurtboxes : DefaultHurtboxes;
+
     /// <summary>Returns the id of the state with this name. Throws if there is no such state. Not for use in a tick (it searches the array).</summary>
     public ushort FindState(string name)
     {
@@ -46,6 +56,8 @@ public sealed class FighterDefinitionData
         var hasher = new StateHasher();
         Stats.Hash(ref hasher);
         hasher.Add(IdleState);
+        hasher.Add(HitstunState);
+        HashHurtboxes(ref hasher, DefaultHurtboxes);
 
         hasher.Add(States.Length);
         foreach (FighterStateData state in States)
@@ -54,6 +66,7 @@ public sealed class FighterDefinitionData
             hasher.Add(state.Name);
             hasher.Add(state.Duration);
             hasher.Add(state.NextState);
+            hasher.Add(state.NextStateInAir);
             hasher.Add((byte)state.Movement);
             hasher.Add((ushort)state.Flags);
             hasher.Add(state.OnLanding);
@@ -67,6 +80,19 @@ public sealed class FighterDefinitionData
                 hasher.Add(action.Value);
             }
 
+            hasher.Add(state.Hitboxes.Length);
+            foreach (HitboxData hitbox in state.Hitboxes)
+            {
+                hasher.Add(hitbox.Box);
+                hasher.Add(hitbox.FromFrame);
+                hasher.Add(hitbox.ToFrame);
+                hasher.Add(hitbox.Damage);
+                hasher.Add(hitbox.HitstunFrames);
+                hasher.Add(hitbox.Knockback);
+                hasher.Add(hitbox.HitstopFrames);
+            }
+            HashHurtboxes(ref hasher, state.Hurtboxes);
+
             HashTransitions(ref hasher, state.Transitions);
             HashDelegate(ref hasher, state.OnEnter);
             HashDelegate(ref hasher, state.OnUpdate);
@@ -76,6 +102,17 @@ public sealed class FighterDefinitionData
         HashTransitions(ref hasher, SharedGroundTransitions);
         HashTransitions(ref hasher, SharedAirTransitions);
         return hasher.Value;
+    }
+
+    private static void HashHurtboxes(ref StateHasher hasher, HurtboxData[] hurtboxes)
+    {
+        hasher.Add(hurtboxes.Length);
+        foreach (HurtboxData hurtbox in hurtboxes)
+        {
+            hasher.Add(hurtbox.Box);
+            hasher.Add(hurtbox.FromFrame);
+            hasher.Add(hurtbox.ToFrame);
+        }
     }
 
     private static void HashTransitions(ref StateHasher hasher, TransitionData[] transitions)

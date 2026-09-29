@@ -38,10 +38,10 @@ public class FighterStateMachineTests
         TestWorld world = WorldWith(
             b => b.State("A", Empty).State("B", Empty),
             idle: s => s
-                .Transition("A", ConditionData.Pressed(InputFlags.Attack))
-                .Transition("B", ConditionData.Pressed(InputFlags.Attack)));
+                .Transition("A", ConditionData.Pressed(InputFlags.Attack1))
+                .Transition("B", ConditionData.Pressed(InputFlags.Attack1)));
 
-        world.Tick(InputFlags.Attack);
+        world.Tick(InputFlags.Attack1);
         Assert.Equal("A", world.StateName());
     }
 
@@ -50,11 +50,11 @@ public class FighterStateMachineTests
     {
         TestWorld world = WorldWith(
             b => b.State("A", Empty),
-            idle: s => s.Transition("A", ConditionData.Held(InputFlags.Attack), ConditionData.DirectionHeld(DirectionInput.Up)));
+            idle: s => s.Transition("A", ConditionData.Held(InputFlags.Attack1), ConditionData.DirectionHeld(DirectionInput.Up)));
 
-        world.Tick(InputFlags.Attack);
+        world.Tick(InputFlags.Attack1);
         Assert.Equal("Idle", world.StateName());
-        world.Tick(InputFlags.Attack | InputFlags.Up);
+        world.Tick(InputFlags.Attack1 | InputFlags.Up);
         Assert.Equal("A", world.StateName());
     }
 
@@ -63,11 +63,11 @@ public class FighterStateMachineTests
     {
         TestWorld world = WorldWith(
             b => b.State("A", Empty),
-            idle: s => s.TransitionInWindow("A", 3, 4, ConditionData.Held(InputFlags.Attack)));
+            idle: s => s.TransitionInWindow("A", 3, 4, ConditionData.Held(InputFlags.Attack1)));
 
-        world.Run(2, InputFlags.Attack);       // State frames 1 and 2.
+        world.Run(2, InputFlags.Attack1);       // State frames 1 and 2.
         Assert.Equal("Idle", world.StateName());
-        world.Tick(InputFlags.Attack);         // State frame 3.
+        world.Tick(InputFlags.Attack1);         // State frame 3.
         Assert.Equal("A", world.StateName());
     }
 
@@ -76,9 +76,9 @@ public class FighterStateMachineTests
     {
         TestWorld world = WorldWith(
             b => b.State("A", s => s.Duration(5, "B")).State("B", Empty),
-            idle: s => s.Transition("A", ConditionData.Pressed(InputFlags.Attack)));
+            idle: s => s.Transition("A", ConditionData.Pressed(InputFlags.Attack1)));
 
-        world.Tick(InputFlags.Attack);
+        world.Tick(InputFlags.Attack1);
         world.Run(4);
         Assert.Equal("A", world.StateName());
         Assert.Equal(4, world.Fighter().StateFrame);
@@ -93,15 +93,15 @@ public class FighterStateMachineTests
         TestWorld world = WorldWith(
             b => b
                 .State("A", s => s.Duration(2, "B"))
-                .State("B", s => s.Transition("C", ConditionData.Held(InputFlags.Attack)))
+                .State("B", s => s.Transition("C", ConditionData.Held(InputFlags.Attack1)))
                 .State("C", Empty),
             idle: s => s.Transition("A", ConditionData.Pressed(InputFlags.Jump)));
 
         world.Tick(InputFlags.Jump);
         world.Tick();
-        world.Tick(InputFlags.Attack);    // A ends: only the change to B on this frame.
+        world.Tick(InputFlags.Attack1);    // A ends: only the change to B on this frame.
         Assert.Equal("B", world.StateName());
-        world.Tick(InputFlags.Attack);
+        world.Tick(InputFlags.Attack1);
         Assert.Equal("C", world.StateName());
     }
 
@@ -112,11 +112,11 @@ public class FighterStateMachineTests
             b => b
                 .State("Own", Empty)
                 .State("Shared", Empty)
-                .SharedGroundTransition("Shared", ConditionData.Pressed(InputFlags.Attack)),
+                .SharedGroundTransition("Shared", ConditionData.Pressed(InputFlags.Attack1)),
             idleFlags: StateFlags.Actionable,
-            idle: s => s.Transition("Own", ConditionData.Pressed(InputFlags.Attack)));
+            idle: s => s.Transition("Own", ConditionData.Pressed(InputFlags.Attack1)));
 
-        world.Tick(InputFlags.Attack);
+        world.Tick(InputFlags.Attack1);
         Assert.Equal("Shared", world.StateName());
     }
 
@@ -124,10 +124,10 @@ public class FighterStateMachineTests
     public void SharedTransitionsDoNotApplyToBusyStates()
     {
         TestWorld world = WorldWith(
-            b => b.State("Shared", Empty).SharedGroundTransition("Shared", ConditionData.Pressed(InputFlags.Attack)),
+            b => b.State("Shared", Empty).SharedGroundTransition("Shared", ConditionData.Pressed(InputFlags.Attack1)),
             idleFlags: StateFlags.None);
 
-        world.Tick(InputFlags.Attack);
+        world.Tick(InputFlags.Attack1);
         Assert.Equal("Idle", world.StateName());
     }
 
@@ -138,13 +138,13 @@ public class FighterStateMachineTests
             b => b
                 .State("GroundAction", Empty)
                 .State("AirAction", Empty)
-                .SharedGroundTransition("GroundAction", ConditionData.Pressed(InputFlags.Attack))
-                .SharedAirTransition("AirAction", ConditionData.Pressed(InputFlags.Attack)),
+                .SharedGroundTransition("GroundAction", ConditionData.Pressed(InputFlags.Attack1))
+                .SharedAirTransition("AirAction", ConditionData.Pressed(InputFlags.Attack1)),
             idleFlags: StateFlags.Actionable);
 
         world.Fighter().Position = new FixedVector2(200, 200);
         world.Fighter().Grounded = false;
-        world.Tick(InputFlags.Attack);
+        world.Tick(InputFlags.Attack1);
         Assert.Equal("AirAction", world.StateName());
     }
 
@@ -152,15 +152,15 @@ public class FighterStateMachineTests
     public void TransitionToTheCurrentStateRestartsIt()
     {
         TestWorld world = WorldWith(
-            b => b.State("A", s => s.OnEnter(SetVar0To100).Transition("A", ConditionData.Pressed(InputFlags.Attack))),
-            idle: s => s.Transition("A", ConditionData.Pressed(InputFlags.Attack)));
+            b => b.State("A", s => s.OnEnter(SetVar0To100).Transition("A", ConditionData.Pressed(InputFlags.Attack1))),
+            idle: s => s.Transition("A", ConditionData.Pressed(InputFlags.Attack1)));
 
-        world.Tick(InputFlags.Attack);
+        world.Tick(InputFlags.Attack1);
         world.Run(3);
         Assert.Equal(3, world.Fighter().StateFrame);
         world.Fighter().StateVar0 = 5;
 
-        world.Tick(InputFlags.Attack);
+        world.Tick(InputFlags.Attack1);
         Assert.Equal("A", world.StateName());
         Assert.Equal(0, world.Fighter().StateFrame);
         Assert.Equal(100, world.Fighter().StateVar0);
@@ -174,10 +174,10 @@ public class FighterStateMachineTests
                 .State("A", s => s.OnEnter(SetVar0To100).OnUpdate(IncrementVar1).OnExit(MarkExit)
                     .Transition("B", ConditionData.Pressed(InputFlags.Jump)))
                 .State("B", Empty),
-            idle: s => s.Transition("A", ConditionData.Pressed(InputFlags.Attack)));
+            idle: s => s.Transition("A", ConditionData.Pressed(InputFlags.Attack1)));
 
         world.Fighter().StateVar2 = 9;
-        world.Tick(InputFlags.Attack);
+        world.Tick(InputFlags.Attack1);
         Assert.Equal(100, world.Fighter().StateVar0);
         Assert.Equal(1, world.Fighter().StateVar1);   // OnUpdate also runs on the first frame.
         Assert.Equal(0, world.Fighter().StateVar2);   // Reset on enter.
@@ -196,13 +196,13 @@ public class FighterStateMachineTests
     {
         TestWorld world = WorldWith(
             b => b
-                .State("Holding", s => s.Transition("Released", ConditionData.Released(InputFlags.Attack)))
+                .State("Holding", s => s.Transition("Released", ConditionData.Released(InputFlags.Attack1)))
                 .State("Released", Empty),
-            idle: s => s.Transition("Holding", ConditionData.Pressed(InputFlags.Attack)));
+            idle: s => s.Transition("Holding", ConditionData.Pressed(InputFlags.Attack1)));
 
-        world.Tick(InputFlags.Attack);
+        world.Tick(InputFlags.Attack1);
         Assert.Equal("Holding", world.StateName());
-        world.Run(5, InputFlags.Attack);
+        world.Run(5, InputFlags.Attack1);
         Assert.Equal("Holding", world.StateName());
         world.Tick();
         Assert.Equal("Released", world.StateName());
@@ -252,10 +252,10 @@ public class FighterStateMachineTests
     {
         TestWorld world = WorldWith(
             b => b.State("Dash", s => s.Movement(MovementMode.None).FrameAction(2, FrameActionType.SetVelocityX, new FixedVector2(8, 0))),
-            idle: s => s.Transition("Dash", ConditionData.Pressed(InputFlags.Attack)));
+            idle: s => s.Transition("Dash", ConditionData.Pressed(InputFlags.Attack1)));
 
         world.Fighter().Facing = -1;
-        world.Tick(InputFlags.Attack);
+        world.Tick(InputFlags.Attack1);
         world.Tick();
         Assert.Equal(Fixed.Zero, world.Fighter().Velocity.X);
         world.Tick();

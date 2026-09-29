@@ -11,6 +11,21 @@ public sealed class GameData
 {
     public required StageData Stage { get; init; }
     public required FighterDefinitionData FighterDefinition { get; init; }
+    public MatchRulesData Rules { get; init; } = new();
+}
+
+/// <summary>Match settings. Part of the static game data, so all players of an online match use the same rules.</summary>
+public sealed class MatchRulesData
+{
+    /// <summary>When a hit connects, the attacker and the target freeze for the hitstop frames of the hitbox.</summary>
+    public bool HitstopEnabled { get; init; } = true;
+
+    public ulong ComputeHash()
+    {
+        var hasher = new StateHasher();
+        hasher.Add(HitstopEnabled);
+        return hasher.Value;
+    }
 }
 
 /// <summary>Two spawn positions (feet) at opposite places on the stage. They do not need to be exact mirrors.</summary>
@@ -122,7 +137,7 @@ public sealed class StageData
 }
 
 /// <summary>Movement values of a fighter. Speeds are in pixels per frame, accelerations in pixels per frame².</summary>
-public sealed class FighterStats
+public sealed record FighterStats
 {
     /// <summary>Width and height of the collision box. The box is centered on the feet on X and goes up from the feet on Y. Use an even width.</summary>
     public required FixedVector2 CollisionBoxSize { get; init; }
@@ -151,6 +166,11 @@ public sealed class FighterStats
     /// <summary>Frames the fighter ignores one-way platforms after a drop-through.</summary>
     public required int DropThroughFrames { get; init; }
 
+    public required int MaxHealth { get; init; }
+
+    /// <summary>Horizontal deceleration on the ground while the fighter has no control (knockback).</summary>
+    public required Fixed GroundFriction { get; init; }
+
     /// <summary>Adds every value. When you add a property to this class, add it here too.</summary>
     public void Hash(ref StateHasher hasher)
     {
@@ -164,6 +184,8 @@ public sealed class FighterStats
         hasher.Add(JumpVelocity);
         hasher.Add(MaxJumps);
         hasher.Add(DropThroughFrames);
+        hasher.Add(MaxHealth);
+        hasher.Add(GroundFriction);
     }
 
     /// <summary>The collision box for a fighter with its feet at <paramref name="feet"/>.</summary>

@@ -22,11 +22,15 @@ internal sealed class TestWorld
     };
 
     /// <param name="definition">The fighter definition. Null = the default fighter.</param>
-    public TestWorld(int playerCount = 1, ulong seed = 1, FighterDefinitionData? definition = null)
+    /// <param name="rules">The match rules. Null = the default rules.</param>
+    public TestWorld(int playerCount = 1, ulong seed = 1, FighterDefinitionData? definition = null, MatchRulesData? rules = null)
     {
-        Data = definition == null
-            ? TestStages.CreateGameData()
-            : new GameData { Stage = TestStages.CreateDefault(), FighterDefinition = definition };
+        Data = new GameData
+        {
+            Stage = TestStages.CreateDefault(),
+            FighterDefinition = definition ?? DefaultGameData.CreateFighterDefinition(),
+            Rules = rules ?? new MatchRulesData(),
+        };
         State = WorldData.Create(Data, playerCount, seed);
         for (int i = 0; i < playerCount; i++)
         {
@@ -59,6 +63,25 @@ internal sealed class TestWorld
         {
             Tick(player0);
         }
+    }
+
+    /// <summary>Runs one tick with one input for each slot (missing slots get no input).</summary>
+    public void TickAll(params InputFlags[] inputs)
+    {
+        FrameInput input = default;
+        for (int i = 0; i < inputs.Length; i++)
+        {
+            input[i] = inputs[i];
+        }
+        Simulator.Tick(ref State, input, Data);
+    }
+
+    /// <summary>Places a fighter on the floor (y = 600) at <paramref name="x"/>, with the given facing.</summary>
+    public void PlaceOnFloor(int slot, int x, int facing)
+    {
+        ref FighterData fighter = ref Fighter(slot);
+        fighter.Position = new FixedVector2(x, 600);
+        fighter.Facing = (sbyte)facing;
     }
 
     public void Tick(InputFlags player0 = InputFlags.None, InputFlags player1 = InputFlags.None)

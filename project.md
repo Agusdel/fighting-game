@@ -14,7 +14,7 @@ Update this section at the end of each work session.
 
 - **Done:** M0, M1, M2, M3. `Match.tscn` loads `Stage01.tscn` (authored in the editor), converts it, and runs up to 4 fighters on it.
 - **Open in M3:** the piece scenes `StageSimpleStructure.tscn` and `StageSimplePlatform.tscn` wait for art. When art exists, turn off `ShowStageDebug` on the `Match` node.
-- **Next:** M4 (combat and fighter state machine), design agreed in section 12. Step 1 (state machine core) is done. Next is step 2 (combat).
+- **Next:** M4 (combat and fighter state machine), design agreed in section 12. Steps 1 (state machine core) and 2 (combat) are done. Next is step 3 (death and restart).
 - **Later:** make fighter behavior data-driven (see section 6).
 - **Before the first public build:** create `scripts/export.sh` (see section 10).
 
@@ -837,7 +837,16 @@ Each step stops for review.
    - The jump count is independent of the states: landing sets `JumpsLeft = MaxJumps`; leaving the ground limits it to `MaxJumps - 1` (a jump uses its jump before it leaves the ground).
    - `PrevInput` is stored at the end of the tick (a new last phase), so phase 1 and phase 2 see the same pressed and released buttons.
    - `MovementMode.Knockback` uses the air friction for now (step 2 can add a ground friction).
-2. **Combat.** Input `Attack1`/`Attack2`, attack states, hitboxes, hurtboxes, health, hitstun, knockback, hit registry, simultaneous resolution, hitstop. Tests: hit, no double hit, trade, slot order does not change the result, hitstop on and off, armor flag.
+2. **Combat.** Input `Attack1`/`Attack2`, attack states, hitboxes, hurtboxes, health, hitstun, knockback, hit registry, simultaneous resolution, hitstop. Tests: hit, no double hit, trade, slot order does not change the result, hitstop on and off, armor flag. (Done. 31 new tests. Two deliberate code breaks (knockback `=` in place of `+=`, no hit registry check) were found by the tests.)
+   - `FighterCombat.cs`: detection writes only to local arrays; resolution combines several hits on one fighter with order-independent operations (sum of damage, sum of knockback vectors, maximum hitstun and hitstop, OR of `HitTargets`).
+   - Tick phases: 0 hitstop (a fighter with `HitstopFrames > 0` counts down and is frozen: no state update, no movement, no input memory), 1 state, 2 movement, 3+4 hits, 5 input memory.
+   - `Duration(frames, next, nextInAir)`: a state can end in a different state in the air (`NextStateInAir`). All attacks end in `Idle` on the ground and `Fall` in the air.
+   - New condition `HitstunEnded` (`StateFrame >= HitstunFrames`). `Hitstun`: `HitstunEnded` + `Grounded` → `Idle`, `HitstunEnded` → `Fall`.
+   - `FighterStats` is a `record` (tests use `with`). New stats: `MaxHealth` (100), `GroundFriction` (1, for `Knockback` on the ground).
+   - `MatchRulesData` (`HitstopEnabled`, default true) is `GameData.Rules`.
+   - `FighterDefinitionData`: `HitstunState` (optional: without it, hits do damage only) and `DefaultHurtboxes` (the body box 48 x 96).
+   - Default attack values: light attacks 18 frames, hitbox frames 4–6, damage 5, hitstun 12, hitstop 3. Heavy attacks 36 frames, hitbox frames 12–16, damage 15, hitstun 24, hitstop 6. First guesses: tune them in the game.
+   - The debug label: one line per value, 2 decimals with a fixed width, monospace font, one block for each active player.
 3. **Death and restart.** `Dead`, `MatchPhase.RoundOver`, restart with new spawn positions. Tests.
 4. **Presentation.** State name label, hitbox and hurtbox debug drawing, health bars. Test in the running game.
 

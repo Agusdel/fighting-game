@@ -25,6 +25,7 @@ public sealed class FighterDefinitionBuilder
     private readonly List<StateBuilder> _states = new();
     private readonly List<TransitionBuilder> _sharedGround = new();
     private readonly List<TransitionBuilder> _sharedAir = new();
+    private readonly List<HurtboxData> _defaultHurtboxes = new();
 
     public FighterDefinitionBuilder(FighterStats stats)
     {
@@ -33,6 +34,16 @@ public sealed class FighterDefinitionBuilder
 
     /// <summary>The name of the state of a fighter when it spawns.</summary>
     public string IdleState { get; set; } = "Idle";
+
+    /// <summary>The name of the state after a hit. Null = hits do damage only (no hitstun, no knockback).</summary>
+    public string? HitstunState { get; set; }
+
+    /// <summary>Adds a hurtbox for states that do not define their own. Active on all frames.</summary>
+    public FighterDefinitionBuilder DefaultHurtbox(Core.FixedAABB box)
+    {
+        _defaultHurtboxes.Add(new HurtboxData { Box = box, FromFrame = 0, ToFrame = int.MaxValue });
+        return this;
+    }
 
     /// <summary>Adds a state. The state id is the order of the calls (0, 1, 2, ...).</summary>
     public FighterDefinitionBuilder State(string name, Action<StateBuilder> configure)
@@ -114,11 +125,14 @@ public sealed class FighterDefinitionBuilder
                 Name = s.Name,
                 Duration = s.DurationValue,
                 NextState = Resolve(s.NextStateName, where),
+                NextStateInAir = Resolve(s.NextStateInAirName ?? s.NextStateName, where),
                 Movement = s.MovementValue,
                 Flags = s.FlagsValue,
                 OnLanding = Resolve(s.OnLandingName, where),
                 OnLeaveGround = Resolve(s.OnLeaveGroundName, where),
                 FrameActions = s.FrameActionsList.ToArray(),
+                Hitboxes = s.HitboxesList.ToArray(),
+                Hurtboxes = s.HurtboxesList.ToArray(),
                 Transitions = ResolveTransitions(s.TransitionsList, where),
                 OnEnter = s.OnEnterHook,
                 OnUpdate = s.OnUpdateHook,
@@ -127,6 +141,7 @@ public sealed class FighterDefinitionBuilder
         }
 
         ushort idle = Resolve(IdleState, "IdleState");
+        ushort hitstun = Resolve(HitstunState, "HitstunState");
         TransitionData[] sharedGround = ResolveTransitions(_sharedGround, "Shared ground transition");
         TransitionData[] sharedAir = ResolveTransitions(_sharedAir, "Shared air transition");
 
@@ -142,6 +157,8 @@ public sealed class FighterDefinitionBuilder
             SharedGroundTransitions = sharedGround,
             SharedAirTransitions = sharedAir,
             IdleState = idle,
+            HitstunState = hitstun,
+            DefaultHurtboxes = _defaultHurtboxes.ToArray(),
         };
     }
 
@@ -158,21 +175,52 @@ public sealed class FighterDefinitionBuilder
         internal string Name { get; }
         internal int DurationValue { get; private set; }
         internal string? NextStateName { get; private set; }
+        internal string? NextStateInAirName { get; private set; }
         internal MovementMode MovementValue { get; private set; }
         internal StateFlags FlagsValue { get; private set; }
         internal string? OnLandingName { get; private set; }
         internal string? OnLeaveGroundName { get; private set; }
         internal List<FrameActionData> FrameActionsList { get; } = new();
+        internal List<HitboxData> HitboxesList { get; } = new();
+        internal List<HurtboxData> HurtboxesList { get; } = new();
         internal List<TransitionBuilder> TransitionsList { get; } = new();
         internal StateHook? OnEnterHook { get; private set; }
         internal StateHook? OnUpdateHook { get; private set; }
         internal StateHook? OnExitHook { get; private set; }
 
-        /// <summary>The state lasts <paramref name="frames"/> frames, then changes to <paramref name="nextState"/>.</summary>
-        public StateBuilder Duration(int frames, string nextState)
+        /// <summary>
+        /// The state lasts <paramref name="frames"/> frames, then changes to <paramref name="nextState"/> (grounded)
+        /// or <paramref name="nextStateInAir"/> (airborne; null = the same as <paramref name="nextState"/>).
+        /// </summary>
+        public StateBuilder Duration(int frames, string nextState, string? nextStateInAir = null)
         {
             DurationValue = frames;
             NextStateName = nextState;
+            NextStateInAirName = nextStateInAir;
+            return this;
+        }
+
+        /// <summary>Adds a hitbox (relative to the feet, for a fighter that faces right), active on frames <paramref name="fromFrame"/> to <paramref name="toFrame"/>.</summary>
+        public StateBuilder Hitbox(Core.FixedAABB box, int fromFrame, int toFrame, int damage, int hitstunFrames,
+            Core.FixedVector2 knockback, int hitstopFrames)
+        {
+            HitboxesList.Add(new HitboxData
+            {
+                Box = box,
+                FromFrame = fromFrame,
+                ToFrame = toFrame,
+                Damage = damage,
+                HitstunFrames = hitstunFrames,
+                Knockback = knockback,
+                HitstopFrames = hitstopFrames,
+            });
+            return this;
+        }
+
+        /// <summary>Adds a hurtbox for this state. A state with its own hurtboxes does not use the default hurtboxes.</summary>
+        public StateBuilder Hurtbox(Core.FixedAABB box, int fromFrame = 0, int toFrame = int.MaxValue)
+        {
+            HurtboxesList.Add(new HurtboxData { Box = box, FromFrame = fromFrame, ToFrame = toFrame });
             return this;
         }
 

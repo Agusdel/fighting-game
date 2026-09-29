@@ -69,6 +69,9 @@ public enum ConditionType : byte
     /// <summary>The fighter has at least one jump left.</summary>
     HasJumpsLeft,
 
+    /// <summary>The state frame reached <see cref="FighterData.HitstunFrames"/> (the hitstun time of the last hit).</summary>
+    HitstunEnded,
+
     /// <summary>Calls <see cref="ConditionData.Custom"/>.</summary>
     Custom,
 }
@@ -112,6 +115,7 @@ public readonly struct ConditionData
     public static ConditionData OnPlatform => new() { Type = ConditionType.OnPlatform };
     public static ConditionData VelocityYDown => new() { Type = ConditionType.VelocityYDown };
     public static ConditionData HasJumpsLeft => new() { Type = ConditionType.HasJumpsLeft };
+    public static ConditionData HitstunEnded => new() { Type = ConditionType.HitstunEnded };
     public static ConditionData When(StateCondition condition) => new() { Type = ConditionType.Custom, Custom = condition };
 }
 
@@ -146,6 +150,47 @@ public enum FrameActionType : byte
     SetVelocityY,
 }
 
+/// <summary>
+/// A box that hits other fighters on some frames of a state. The box is relative to the feet, defined for a fighter
+/// that faces right (+X). It is mirrored when the fighter faces left.
+/// </summary>
+public readonly struct HitboxData
+{
+    public FixedAABB Box { get; init; }
+
+    /// <summary>First active state frame (inclusive).</summary>
+    public int FromFrame { get; init; }
+
+    /// <summary>Last active state frame (inclusive).</summary>
+    public int ToFrame { get; init; }
+
+    public int Damage { get; init; }
+
+    /// <summary>Frames of hitstun for the target.</summary>
+    public int HitstunFrames { get; init; }
+
+    /// <summary>The new velocity of the target. X is relative to the attacker facing (+X = away from the attacker's back).</summary>
+    public FixedVector2 Knockback { get; init; }
+
+    /// <summary>Frames that the attacker and the target freeze when the hit connects (if hitstop is enabled).</summary>
+    public int HitstopFrames { get; init; }
+
+    public bool IsActive(int frame) => frame >= FromFrame && frame <= ToFrame;
+}
+
+/// <summary>
+/// A box where a fighter can be hit, on some frames of a state. Relative to the feet, defined for a fighter that
+/// faces right, mirrored when it faces left.
+/// </summary>
+public readonly struct HurtboxData
+{
+    public FixedAABB Box { get; init; }
+    public int FromFrame { get; init; }
+    public int ToFrame { get; init; }
+
+    public bool IsActive(int frame) => frame >= FromFrame && frame <= ToFrame;
+}
+
 /// <summary>An action that runs on one state frame.</summary>
 public readonly struct FrameActionData
 {
@@ -171,8 +216,11 @@ public sealed class FighterStateData
     /// <summary>Number of frames. 0 = no end.</summary>
     public int Duration { get; init; }
 
-    /// <summary>The state after <see cref="Duration"/> ends.</summary>
+    /// <summary>The state after <see cref="Duration"/> ends, when the fighter is grounded.</summary>
     public ushort NextState { get; init; } = NoState;
+
+    /// <summary>The state after <see cref="Duration"/> ends, when the fighter is airborne.</summary>
+    public ushort NextStateInAir { get; init; } = NoState;
 
     public MovementMode Movement { get; init; }
     public StateFlags Flags { get; init; }
@@ -184,6 +232,12 @@ public sealed class FighterStateData
     public ushort OnLeaveGround { get; init; } = NoState;
 
     public FrameActionData[] FrameActions { get; init; } = Array.Empty<FrameActionData>();
+
+    /// <summary>Checked in order. When more than one hitbox touches a target, the first one wins.</summary>
+    public HitboxData[] Hitboxes { get; init; } = Array.Empty<HitboxData>();
+
+    /// <summary>The hurtboxes of this state. Empty = the default hurtboxes of the fighter definition.</summary>
+    public HurtboxData[] Hurtboxes { get; init; } = Array.Empty<HurtboxData>();
 
     /// <summary>Checked in order. The first transition that matches wins.</summary>
     public TransitionData[] Transitions { get; init; } = Array.Empty<TransitionData>();

@@ -39,7 +39,7 @@ public static class FighterStateMachine
 
         if (state.Duration > 0 && fighter.StateFrame >= state.Duration)
         {
-            Enter(ref fighter, state.NextState, context);
+            Enter(ref fighter, fighter.Grounded ? state.NextState : state.NextStateInAir, context);
             state = definition.States[fighter.StateId];
         }
         else if (TryFindTransition(fighter, state, context, out ushort target))
@@ -77,6 +77,7 @@ public static class FighterStateMachine
         fighter.StateVar1 = 0;
         fighter.StateVar2 = 0;
         fighter.StateVar3 = 0;
+        fighter.HitTargets = 0;
         context.Definition.States[stateId].OnEnter?.Invoke(ref fighter, context);
     }
 
@@ -147,6 +148,8 @@ public static class FighterStateMachine
                 return fighter.Velocity.Y > Core.Fixed.Zero;
             case ConditionType.HasJumpsLeft:
                 return fighter.JumpsLeft > 0;
+            case ConditionType.HitstunEnded:
+                return fighter.StateFrame >= fighter.HitstunFrames;
             case ConditionType.Custom:
                 return condition.Custom!(fighter, context);
             default:
