@@ -12,11 +12,10 @@ Status: **Draft**. This document is the source of truth for the design. Update i
 
 Update this section at the end of each work session.
 
-- **Done:** M0, M1, M2, M3, M4. `Match.tscn` runs up to 4 fighters on `Stage01.tscn` with the data-driven state machine, two attacks with direction variants, hitstop, defeat, and round restart. Debug drawing: F1 stage boxes, F2 hurtboxes and hitboxes. HUD health bars.
+- **Done:** M0–M5. The game starts at the main menu (`Main.tscn`): Play Local → lobby (players join with their keyboard set or controller) → match → Esc → lobby. Up to 4 fighters on `Stage01.tscn` with the data-driven state machine, two attacks with direction variants, hitstop, defeat, and round restart. Debug drawing: F1 stage boxes, F2 hurtboxes, hitboxes, and state progress bar. HUD health bars.
 - **Open in M3:** the piece scenes `StageSimpleStructure.tscn` and `StageSimplePlatform.tscn` wait for art. When art exists, turn off `ShowStageDebug` and `ShowCombatDebug` on the `Match` node.
-- **To tune (in the game):** movement values (`DefaultGameData.CreateFighterStats`) and attack values (`DefaultGameData.CreateFighterDefinition`).
-- **Next:** M5 (local multiplayer), design agreed in section 13. Step 1 (input actions and devices) is done; the controller copies are not tested yet (no controller on the development machine). Steps 2 (session layer) and 3 (app root and main menu) are done. Next is step 4 (lobby).
-- **Small items for later:** input buffer (a press on the last frame of a busy state is lost), review the `Data` names (section 12.3), tune movement and attack values in the game.
+- **Next:** M6 (rollback, offline). It starts with a SyncTest mode (section 7). Design first, with the user. Topics to decide: SyncTest session (roll back N frames every frame, compare hashes), input queue and prediction, snapshot ring buffer, `RollbackSession` behind `IMatchSession`, `LoopbackTransport` with simulated latency and loss, what the views do after a rollback.
+- **Small items for later:** input buffer (a press on the last frame of a busy state is lost), input latch (a tap shorter than one tick is lost, 13.2), pause menu (Esc / controller Start; now it goes back to the lobby), review the `Data` names (section 12.3), tune movement and attack values (better when fighter states can be authored in the editor, M10).
 - **Before the first public build:** create `scripts/export.sh` (see section 10).
 
 ---
@@ -304,7 +303,7 @@ Each milestone must be runnable and testable before the next one starts.
 | M2 | Simulation core | One fighter moves, jumps, falls, collides with a hard-coded stage. State save/restore/hash works. Boxes drawn as rectangles. **Done 2026-09-26** (movement feel not yet checked by the user) |
 | M3 | Editor authoring | Stage authored in `Stage01.tscn` and converted to `StageData`. **Done 2026-09-27** (piece scenes wait for art) |
 | M4 | Combat and fighter state machine (**Done 2026-09-28**) | Data-driven fighter states, two attacks with direction variants, hitboxes, hurtboxes, damage, hitstun, knockback, hitstop (can be disabled), health bars, death and restart. Fair resolution (section 12) |
-| M5 | Local multiplayer | Main menu (local), lobby with device assignment, 2–4 local players |
+| M5 | Local multiplayer (**Done 2026-09-30**) | Main menu (local), lobby with device assignment, 2–4 local players |
 | M6 | Rollback (offline) | First step: SyncTest mode. Then `RollbackSession` with `LoopbackTransport`: two sessions in one process with simulated latency and loss. No desync |
 | M7 | Online (ENet) | Host / Join, online lobby, online match over localhost/LAN. Desync detection |
 | M8 | Steam | `SteamTransport` |
@@ -987,4 +986,9 @@ Each step stops for review.
    - `MatchRunner.Setup(MatchSetup)` must be called before the match enters the tree. Without it, the match builds a default setup from its exports; slots without an input device are not created.
    - `MatchRunner.ExitRequested` is raised on `match_pause` (Esc, controller Start).
    - `PlayerColors` (`src/Presentation/PlayerColors.cs`) holds the slot colors for all views.
-4. **Lobby.** `Lobby.tscn`, `LobbyPlayerSlot.tscn`, join and leave, start and back. Full flow: menu → lobby → match → Esc → lobby.
+4. **Lobby.** `Lobby.tscn`, `LobbyPlayerSlot.tscn`, join and leave, start and back. Full flow: menu → lobby → match → Esc → lobby. (Done. Tested in the game: join with two keyboard sets, leave, join again, start, Esc back to the lobby with the same players.)
+   - `LobbyScreen.StartPressed` sends only the list of slot devices (the lobby does not know the stage or the seed); `Main` builds the `MatchSetup`.
+   - The Start button has the focus. Join and leave presses are consumed in `_Input`. Any other press reaches the UI: a joined player who presses jump again (Space, controller A = `ui_accept`) presses Start. `ui_cancel` (Esc) = Back.
+   - When a player leaves, the players after it move up one slot (no gaps: the slots of a match are 0 to N-1).
+   - After a match, the same players keep their slots (`LobbyScreen.Initialize(devices, previousPlayers)`). A controller that disconnects is removed from its slot.
+   - `LobbyPlayerSlot.tscn`: `PanelContainer` with a color bar, the title ("Player N" in the player color, or "Press a button to join"), and the device name.

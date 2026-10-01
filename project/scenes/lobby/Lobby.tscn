@@ -1,0 +1,55 @@
+[gd_scene format=3 uid="uid://d27oh4yya8rnk"]
+
+[ext_resource type="Script" uid="uid://vmghqryp1uyc" path="res://src/Lobby/LobbyScreen.cs" id="1_v0l1j"]
+[ext_resource type="PackedScene" uid="uid://mpdv0cyjx8q8" path="res://scenes/lobby/LobbyPlayerSlot.tscn" id="2_qv0t4"]
+
+[node name="Lobby" type="Control" unique_id=641745838 node_paths=PackedStringArray("SlotsContainer", "StartButton", "BackButton")]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("1_v0l1j")
+PlayerSlotScene = ExtResource("2_qv0t4")
+SlotsContainer = NodePath("Center/Items/Slots")
+StartButton = NodePath("Center/Items/Buttons/Start")
+BackButton = NodePath("Center/Items/Buttons/Back")
+
+[node name="Center" type="CenterContainer" parent="." unique_id=984045940]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="Items" type="VBoxContainer" parent="Center" unique_id=1341144211]
+layout_mode = 2
+theme_override_constants/separation = 24
+
+[node name="Title" type="Label" parent="Center/Items" unique_id=46556502]
+layout_mode = 2
+theme_override_font_sizes/font_size = 40
+text = "Local Match"
+horizontal_alignment = 1
+
+[node name="Slots" type="HBoxContainer" parent="Center/Items" unique_id=1867417093]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="Hint" type="Label" parent="Center/Items" unique_id=1120524153]
+layout_mode = 2
+text = "Jump or light attack: join      Heavy attack: leave"
+horizontal_alignment = 1
+
+[node name="Buttons" type="HBoxContainer" parent="Center/Items" unique_id=1094127205]
+layout_mode = 2
+theme_override_constants/separation = 16
+alignment = 1
+
+[node name="Back" type="Button" parent="Center/Items/Buttons" unique_id=423964224]
+custom_minimum_size = Vector2(180, 48)
+layout_mode = 2
+text = "Back"
+
+[node name="Start" type="Button" parent="Center/Items/Buttons" unique_id=1917509061]
+custom_minimum_size = Vector2(180, 48)
+layout_mode = 2
+text = "Start"

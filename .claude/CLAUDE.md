@@ -65,6 +65,9 @@ The Godot MCP Pro server (`godot-mcp-pro`) connects Claude to the open Godot edi
 - To test tool scripts without a scene change, build a node tree in memory in `editor exec` (add it under `EditorInterface.get_base_control()`), check it, and `queue_free()` it at the end.
 - A script attached to a node that is already in the tree gets no enter-tree notification, so its `_Draw` may not run. Reload the saved scene (`EditorInterface.reload_scene_from_path(path)` in `editor exec`) to see the real editor view. The reload also uses the newest C# assembly.
 - `EditorInterface.get_resource_filesystem().scan()` in `editor exec` finds new `.cs` files, but it logs harmless `progress_dialog.cpp` errors. Use it only when a new script class must be registered.
+- In `editor exec` and `runtime exec`, return output with `_mcp_print(...)`. A plain `print()` is not returned.
+- In shell scripts, do not use the variable name `UID` (it is read-only in bash and holds the user id).
+- UI built with the MCP: a `Control` child that must fill its parent needs `layout_mode = 1` and the `full_rect` anchor preset (`node scripts/godot-rpc.mjs set_anchor_preset '{"node_path":"X","preset":"full_rect"}'`).
 - Each CLI call takes several seconds. Do not use CLI timing to check frame-exact behavior; use unit tests for that.
 - To screenshot a short moment in the running game (for example an attack's active frames), slow the game with `Engine.time_scale = 0.02` in `runtime exec`. `MatchRunner` uses the frame delta, so the simulation slows down too.
 

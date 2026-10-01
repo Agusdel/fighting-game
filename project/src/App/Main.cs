@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using FightingGame.Lobby;
 using FightingGame.MainMenu;
 using FightingGame.PlayerInput;
 using FightingGame.Presentation;
@@ -14,6 +15,7 @@ namespace FightingGame.App;
 public partial class Main : Node
 {
     [Export] public PackedScene? MainMenuScene { get; set; }
+    [Export] public PackedScene? LobbyScene { get; set; }
     [Export] public PackedScene? MatchScene { get; set; }
 
     /// <summary>The stage for local matches.</summary>
@@ -37,34 +39,34 @@ public partial class Main : Node
     private void ShowMainMenu()
     {
         var menu = Instantiate<MainMenuScreen>(MainMenuScene, nameof(MainMenuScene));
-        menu.PlayLocalPressed += StartLocalMatch;
+        menu.PlayLocalPressed += () => ShowLobby(null);
         menu.QuitPressed += () => GetTree().Quit();
         SetScreen(menu);
     }
 
-    /// <summary>Until the lobby exists: a match with the first two input devices.</summary>
-    private void StartLocalMatch()
+    /// <summary>Shows the local lobby. <paramref name="previousPlayers"/>: the players of the last match keep their slots.</summary>
+    private void ShowLobby(IReadOnlyList<InputDevice>? previousPlayers)
     {
-        IReadOnlyList<InputDevice> devices = _inputDevices!.All;
-        var slotDevices = new List<InputDevice>();
-        for (int i = 0; i < 2 && i < devices.Count; i++)
-        {
-            slotDevices.Add(devices[i]);
-        }
-
-        StartMatch(new MatchSetup
-        {
-            SlotDevices = slotDevices,
-            Seed = MatchSetup.NewSeed(),
-            StageScene = StageScene ?? throw new System.InvalidOperationException("Main: StageScene is not set."),
-        });
+        var lobby = Instantiate<LobbyScreen>(LobbyScene, nameof(LobbyScene));
+        lobby.Initialize(_inputDevices!, previousPlayers);
+        lobby.StartPressed += StartLocalMatch;
+        lobby.BackPressed += ShowMainMenu;
+        SetScreen(lobby);
     }
 
-    private void StartMatch(MatchSetup setup)
+    private void StartLocalMatch(IReadOnlyList<InputDevice> players)
     {
+        var setup = new MatchSetup
+        {
+            SlotDevices = players,
+            Seed = MatchSetup.NewSeed(),
+            StageScene = StageScene ?? throw new System.InvalidOperationException("Main: StageScene is not set."),
+        };
+
         var match = Instantiate<MatchRunner>(MatchScene, nameof(MatchScene));
         match.Setup(setup);
-        match.ExitRequested += ShowMainMenu;
+        // Later: a pause menu. For now, the pause action goes back to the lobby with the same players.
+        match.ExitRequested += () => ShowLobby(setup.SlotDevices);
         SetScreen(match);
     }
 
