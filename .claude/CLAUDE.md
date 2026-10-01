@@ -19,6 +19,7 @@ Run Godot and `dotnet` commands for the game from `project/`, not from the repos
 - Do not use GDScript unless the user asks for it.
 - Naming: simulation types that hold data use the `Data` suffix (`WorldData`, `FighterData`, `StageData`, `GameData`). Exceptions: `FighterStats`, `FrameInput`, and enums.
 - Naming: use the term "spawn position" (`SpawnPosition...`), never only "spawn".
+- Naming: do not name a namespace like a Godot class (for example `FightingGame.Input`). It hides the Godot class (`Input`) in all code under `FightingGame.*`.
 - Do not reference `project.md` (or any other design document) in code or comments. The design document can be removed in the future. If code needs an explanation, write the full explanation in a comment in the code file.
 
 ## Communication
@@ -77,6 +78,7 @@ Use the scripts in `scripts/` (run them from any folder):
 
 - `scripts/build.sh` — Runs `dotnet build` on `FightingGame.sln`, then a Godot headless build (the same as the editor Build button). Use `--no-godot` to skip the Godot build. It skips the Godot build when the editor is open with this project.
 - `scripts/test.sh` — Runs all unit tests. Extra arguments go to `dotnet test` (for example `--filter FixedTests`).
+- `scripts/godot-rpc.mjs` — Sends one command to the Godot MCP editor plugin: `node scripts/godot-rpc.mjs <method> '<params JSON>'`. Use it for plugin commands that the CLI does not offer, for example `set_input_action` (input actions) and `get_input_actions`. The plugin commands are in `project/addons/godot_mcp/commands/`.
 - `scripts/godot-path.sh` — Prints the Godot executable path. It reads `$GODOT_BIN`, then `godotTools.editorPath.godot4` in `fighting-game.code-workspace`.
 
 Run `scripts/build.sh` and `scripts/test.sh` after each code change.

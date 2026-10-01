@@ -1,7 +1,9 @@
+using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
 using FightingGame.Authoring;
 using FightingGame.Core;
+using FightingGame.PlayerInput;
 using FightingGame.Simulation;
 using Godot;
 
@@ -46,7 +48,10 @@ public partial class MatchRunner : Node2D
     [Export] public Node2D? FightersRoot { get; set; }
     [Export] public Label? DebugLabel { get; set; }
 
-    private readonly KeyboardInputMap[] _keyboardMaps = { KeyboardInputMap.Wasd, KeyboardInputMap.Arrows };
+    private InputDevices? _inputDevices;
+
+    /// <summary>The input device of each player slot. Slots without a device get no input.</summary>
+    private InputDevice[] _slotDevices = System.Array.Empty<InputDevice>();
 
     private GameData _data = null!;
     private WorldData _world;
@@ -55,6 +60,15 @@ public partial class MatchRunner : Node2D
 
     public override void _Ready()
     {
+        // Default devices: keyboard 1, keyboard 2, then the connected controllers, in slot order.
+        _inputDevices = new InputDevices();
+        IReadOnlyList<InputDevice> devices = _inputDevices.All;
+        _slotDevices = new InputDevice[Mathf.Min(PlayerCount, devices.Count)];
+        for (int i = 0; i < _slotDevices.Length; i++)
+        {
+            _slotDevices[i] = devices[i];
+        }
+
         StageData? stage = LoadStage();
         if (stage == null)
         {
@@ -92,6 +106,12 @@ public partial class MatchRunner : Node2D
         }
 
         RefreshViews();
+    }
+
+    public override void _ExitTree()
+    {
+        _inputDevices?.Dispose();
+        _inputDevices = null;
     }
 
     public override void _UnhandledInput(InputEvent @event)
@@ -210,9 +230,9 @@ public partial class MatchRunner : Node2D
     private FrameInput ReadInput()
     {
         FrameInput input = default;
-        for (int i = 0; i < PlayerCount && i < _keyboardMaps.Length; i++)
+        for (int i = 0; i < _slotDevices.Length; i++)
         {
-            input[i] = _keyboardMaps[i].Read();
+            input[i] = _slotDevices[i].Read();
         }
         return input;
     }

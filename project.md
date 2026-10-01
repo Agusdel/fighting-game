@@ -15,8 +15,8 @@ Update this section at the end of each work session.
 - **Done:** M0, M1, M2, M3, M4. `Match.tscn` runs up to 4 fighters on `Stage01.tscn` with the data-driven state machine, two attacks with direction variants, hitstop, defeat, and round restart. Debug drawing: F1 stage boxes, F2 hurtboxes and hitboxes. HUD health bars.
 - **Open in M3:** the piece scenes `StageSimpleStructure.tscn` and `StageSimplePlatform.tscn` wait for art. When art exists, turn off `ShowStageDebug` and `ShowCombatDebug` on the `Match` node.
 - **To tune (in the game):** movement values (`DefaultGameData.CreateFighterStats`) and attack values (`DefaultGameData.CreateFighterDefinition`).
-- **Next:** M5 (local multiplayer: main menu, lobby, device assignment). Design first, with the user.
-- **Later:** make fighter behavior data-driven (see section 6).
+- **Next:** M5 (local multiplayer), design agreed in section 13. Step 1 (input actions and devices) is done; the controller copies are not tested yet (no controller on the development machine). Next is step 2 (session layer).
+- **Small items for later:** input buffer (a press on the last frame of a busy state is lost), review the `Data` names (section 12.3), tune movement and attack values in the game.
 - **Before the first public build:** create `scripts/export.sh` (see section 10).
 
 ---
@@ -289,7 +289,7 @@ Rules:
 |---|---|---|---|
 | — | None at this time | | |
 
-Planned rework (M4, section 12): make fighter behavior data-driven. The M2 code uses a hard-coded `switch` on `FighterAction`. The goal is to define actions/states, animations, attack hitboxes, movement values, and input rules as data, so a new move does not need new simulation code.
+Done in M4 (section 12): fighter behavior is data-driven. The M2 code uses a hard-coded `switch` on `FighterAction`. The goal is to define actions/states, animations, attack hitboxes, movement values, and input rules as data, so a new move does not need new simulation code.
 
 ---
 
@@ -460,6 +460,7 @@ public static class Simulator
 | 2026-09-28 | New milestone order: M4 combat and fighter state machine, M5 local multiplayer, M6 rollback (starts with SyncTest), M7 online (ENet), M8 Steam, M9 determinism tools (when needed), M10 art, animation, and fighter authoring |
 | 2026-09-28 | M4 design agreed (section 12). Static fighter definition: `FighterDefinitionData` (names to review later). Shared transitions of `Actionable` states have priority over the state's own transitions. Down attack variant only in the air or on a platform |
 | 2026-09-28 | Fighters can turn in the air: `AirControl` (and `Free` in the air) sets the facing when the state has `CanTurn`. `Jump`, `DoubleJump`, and `Fall` have `CanTurn`. Attacks, `Locked`, and `Knockback` never turn. (This replaces the M2 rule "facing does not change in the air".) |
+| 2026-09-30 | M5 design agreed (section 13): input from InputMap actions (controller template copied per controller), `IMatchSession` / `LocalSession`, app root `Main.tscn` with `MatchSetup`, Smash-style lobby with `LobbyPlayerSlot`, scene folders per part of the game |
 
 ---
 
@@ -871,3 +872,114 @@ Each step stops for review.
 - Cancel windows between attacks: transitions with frame windows already allow them.
 - Knockback that scales with damage.
 - An input buffer (a press stays valid for a few frames), so a press on the last frame of a busy state is not lost.
+
+---
+
+## 13. Detailed Design: M5 Local Multiplayer
+
+Status: **Agreed** (2026-09-30).
+
+### 13.1 Goals
+
+- App flow: main menu → local lobby → match → (Esc) → lobby.
+- Up to `GameConstants.MaxPlayers` players on one machine, each with its own input device (keyboard set or controller).
+- Input comes from actions in the InputMap (Project Settings), so keys and buttons can change without code.
+- A session layer between `MatchRunner` and the simulation, so M6 (rollback) can replace the local session without a change to `MatchRunner`.
+
+### 13.2 Input actions (Project Settings)
+
+All keyboard events use the **physical** keycode (the key position: WASD stays WASD on an AZERTY keyboard).
+
+| Set | Actions | Default bindings |
+|---|---|---|
+| Keyboard 1 | `keyboard1_left/right/up/down/jump/attack1/attack2` | A D W S, Space, J, K |
+| Keyboard 2 | `keyboard2_left/right/up/down/jump/attack1/attack2` | arrows, keypad 0, keypad 1, keypad 2 |
+| Controller template | `controller_left/right/up/down/jump/attack1/attack2` | left stick and D-pad, A (jump), X (attack1), B (attack2). Device: "All devices". Dead zone 0.5 |
+| Global | `match_pause` | Esc, controller Start |
+
+Controllers use one **template set**. At startup (and when a controller connects), the code copies each template action for each connected controller: `controller1_*` for the first controller, `controller2_*` for the second, and so on, with the device number of that controller. So the controller layout is edited in one place, and the number of controllers is not fixed.
+
+Limits (accepted for now):
+- Godot numbers controllers in connection order. A controller that reconnects can get another number.
+- Input is read once per tick (16.7 ms). A press and release between two reads is lost. Later fix: record presses from input events until the next tick.
+
+### 13.3 Input devices (`project/src/PlayerInput/`)
+
+| Type | Content |
+|---|---|
+| `InputDevice` | One input set: `Id` (`keyboard1`, `controller2`, ...), `DisplayName` ("Keyboard 1", "Controller 2"), action prefix. `InputFlags Read()` reads its actions with `Input.IsActionPressed`. `IsJoinPress(InputEvent)` (jump or attack1 pressed), `IsLeavePress(InputEvent)` (attack2 pressed). |
+| `InputDevices` | The list of available devices: the two keyboard sets and one device per connected controller. Creates the `controllerN_*` actions from the template. Listens to `Input.JoyConnectionChanged` and raises `DevicesChanged`. |
+
+`InputDevice` replaces `KeyboardInputMap`.
+
+### 13.4 Session layer (`project/simulation/Session/`, pure C#)
+
+```csharp
+public interface IMatchSession
+{
+    GameData Data { get; }
+    ref readonly WorldData World { get; }
+    void SetLocalInput(int slot, InputFlags input);   // input of a local player for the next frame
+    void AdvanceFrame();                               // run one simulation frame
+}
+```
+
+- `LocalSession`: all players are local. `AdvanceFrame` builds a `FrameInput` from the local inputs and calls `Simulator.Tick`.
+- M6 adds `RollbackSession` (local inputs + predicted remote inputs, rollback). `MatchRunner` keeps the same calls.
+- Unit tests for `LocalSession`.
+
+### 13.5 App root and `MatchSetup` (`project/src/App/`)
+
+- `Main.tscn` (root `Main` node, `Main.cs`) becomes the **main scene** (`run/main_scene`). It shows one screen at a time as a child: the main menu, the lobby, or the match. It owns `InputDevices`.
+- Screens do not know `Main`. They raise events (C# events or signals), and `Main` changes the screen:
+  - `MainMenu`: `PlayLocalPressed`, `QuitPressed`.
+  - `Lobby`: `StartPressed(MatchSetup)`, `BackPressed`.
+  - `MatchRunner`: `ExitRequested` (Esc / Start).
+- `MatchSetup` (made by the lobby, read-only after that):
+  - player slots: for each slot 0 to N-1, the `InputDevice`;
+  - seed (a new random value for each match; chosen outside the simulation, then fixed for the match);
+  - stage scene (`PackedScene`) and `MatchRulesData`.
+- `Main` gives `MatchSetup` to `MatchRunner` before the match enters the tree (`MatchRunner.Setup(MatchSetup)`). Without a setup (when `Match.tscn` runs alone with F6), `MatchRunner` builds a default setup from its exports, as now.
+- Esc (or controller Start) in a match: back to the lobby, with the same players in their slots. Later: a pause menu.
+
+### 13.6 Main menu and lobby
+
+Main menu (`MainMenu.tscn`): title, **Play Local**, **Play Online** (disabled until M7), **Quit**.
+
+Lobby (`Lobby.tscn`):
+- One `LobbyPlayerSlot` for each player slot, created in code from `GameConstants.MaxPlayers` (no fixed count in the scene).
+- A free slot shows "Press a button to join". A joined slot shows "Player N", the device name, and the player color.
+- Join: `Jump` or `Attack1` on a device that is not in a slot puts it in the first free slot.
+- Leave: `Attack2` on a joined device frees its slot.
+- **Start** (enabled with at least 1 player) and **Back** (to the main menu).
+- Join and leave presses are read in `_Input` and marked as handled, so a join press (for example Space) never also presses a focused button (`ui_accept` uses Space and Enter).
+
+Player colors move to one shared place (`PlayerColors`), used by the lobby, the fighter views, and the HUD.
+
+### 13.7 Folders
+
+Scenes, one folder for each part of the game (each folder holds all scenes of that part, also UI):
+
+```
+project/scenes/
+  Main.tscn                     app root (main scene)
+  MainMenu/MainMenu.tscn
+  Lobby/Lobby.tscn
+  Lobby/LobbyPlayerSlot.tscn
+  Match/Match.tscn
+  Stages/StageBase.tscn
+  Stages/Stage01.tscn
+```
+
+The existing scenes (`Match.tscn`, `MainMenu.tscn`, `stages/StageBase.tscn`, `stages/Stage01.tscn`) are moved by the user in the editor FileSystem dock, which updates all references. The MCP has no file move command.
+
+Scripts: new code goes into new folders (`src/App/`, `src/PlayerInput/`, `src/MainMenu/`, `src/Lobby/`). The input folder and namespace are `PlayerInput`, not `Input`: a namespace `FightingGame.Input` would hide Godot's `Input` class in all code under `FightingGame.*`. The existing folders (`src/Presentation/`, `src/Authoring/`) stay.
+
+### 13.8 Implementation steps
+
+Each step stops for review.
+
+1. **Input.** Create the input actions (MCP), `InputDevice`, `InputDevices`. `MatchRunner` uses `InputDevice` (`keyboard1`, `keyboard2`) in place of `KeyboardInputMap`. Test in the game, also with a controller if one is available. (Done. 22 actions created with `scripts/godot-rpc.mjs` (plugin command `set_input_action`, physical keys, device "All devices"). Both keyboard sets tested in the game. Controllers not tested: no controller on the development machine. `KeyboardInputMap` is deleted. `MatchRunner` gives slot i the i-th device of `InputDevices.All` until the lobby exists.)
+2. **Session.** `IMatchSession`, `LocalSession`, tests. `MatchRunner` uses the session.
+3. **App root and main menu.** The user moves the existing scenes. `Main.tscn`, `MatchSetup`, `MainMenu.tscn`, screen switching, main scene setting. Flow: menu → match (with a default setup) → Esc → menu.
+4. **Lobby.** `Lobby.tscn`, `LobbyPlayerSlot.tscn`, join and leave, start and back. Full flow: menu → lobby → match → Esc → lobby.
