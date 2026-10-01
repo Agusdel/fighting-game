@@ -15,7 +15,7 @@ Update this section at the end of each work session.
 - **Done:** M0, M1, M2, M3, M4. `Match.tscn` runs up to 4 fighters on `Stage01.tscn` with the data-driven state machine, two attacks with direction variants, hitstop, defeat, and round restart. Debug drawing: F1 stage boxes, F2 hurtboxes and hitboxes. HUD health bars.
 - **Open in M3:** the piece scenes `StageSimpleStructure.tscn` and `StageSimplePlatform.tscn` wait for art. When art exists, turn off `ShowStageDebug` and `ShowCombatDebug` on the `Match` node.
 - **To tune (in the game):** movement values (`DefaultGameData.CreateFighterStats`) and attack values (`DefaultGameData.CreateFighterDefinition`).
-- **Next:** M5 (local multiplayer), design agreed in section 13. Step 1 (input actions and devices) is done; the controller copies are not tested yet (no controller on the development machine). Next is step 2 (session layer).
+- **Next:** M5 (local multiplayer), design agreed in section 13. Step 1 (input actions and devices) is done; the controller copies are not tested yet (no controller on the development machine). Step 2 (session layer) is done. Next is step 3 (app root and main menu: the user first moves the existing scenes, see 13.7).
 - **Small items for later:** input buffer (a press on the last frame of a busy state is lost), review the `Data` names (section 12.3), tune movement and attack values in the game.
 - **Before the first public build:** create `scripts/export.sh` (see section 10).
 
@@ -980,6 +980,6 @@ Scripts: new code goes into new folders (`src/App/`, `src/PlayerInput/`, `src/Ma
 Each step stops for review.
 
 1. **Input.** Create the input actions (MCP), `InputDevice`, `InputDevices`. `MatchRunner` uses `InputDevice` (`keyboard1`, `keyboard2`) in place of `KeyboardInputMap`. Test in the game, also with a controller if one is available. (Done. 22 actions created with `scripts/godot-rpc.mjs` (plugin command `set_input_action`, physical keys, device "All devices"). Both keyboard sets tested in the game. Controllers not tested: no controller on the development machine. `KeyboardInputMap` is deleted. `MatchRunner` gives slot i the i-th device of `InputDevices.All` until the lobby exists.)
-2. **Session.** `IMatchSession`, `LocalSession`, tests. `MatchRunner` uses the session.
+2. **Session.** `IMatchSession`, `LocalSession`, tests. `MatchRunner` uses the session. (Done. 6 new tests: same start as `WorldData.Create`, same frames as `Simulator.Tick` over 300 random frames, inputs cleared after each frame, invalid slot rejected. `LocalSession` clears the inputs after each frame: a slot without new input has no buttons held, never the old buttons. `MatchRunner` has no `WorldData` of its own any more: it calls `SetLocalInput` and `AdvanceFrame`, and the views read `IMatchSession.World`.)
 3. **App root and main menu.** The user moves the existing scenes. `Main.tscn`, `MatchSetup`, `MainMenu.tscn`, screen switching, main scene setting. Flow: menu → match (with a default setup) → Esc → menu.
 4. **Lobby.** `Lobby.tscn`, `LobbyPlayerSlot.tscn`, join and leave, start and back. Full flow: menu → lobby → match → Esc → lobby.

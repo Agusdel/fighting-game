@@ -8,7 +8,7 @@
 [node name="Match" type="Node2D" unique_id=2000042306 node_paths=PackedStringArray("StageView", "Hud", "FightersRoot", "DebugLabel")]
 script = ExtResource("1_1w71u")
 StageScene = ExtResource("2_tte12")
-PlayerCount = 2
+PlayerCount = 3
 ShowStageDebug = true
 ShowCombatDebug = true
 StageView = NodePath("StageView")

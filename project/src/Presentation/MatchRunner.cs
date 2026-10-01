@@ -4,13 +4,15 @@ using System.Text;
 using FightingGame.Authoring;
 using FightingGame.Core;
 using FightingGame.PlayerInput;
+using FightingGame.Session;
 using FightingGame.Simulation;
 using Godot;
 
 namespace FightingGame.Presentation;
 
 /// <summary>
-/// Runs a local match: it owns the world state, runs the simulation at a fixed rate, and updates the views.
+/// Runs a match: it gives the local inputs to the match session at a fixed rate, and updates the views from the
+/// session's world state. The session decides how the simulation runs (all players local for now).
 /// </summary>
 /// <remarks>
 /// The simulation runs at <see cref="GameConstants.TickRate"/> ticks per second, independent of the render frame rate.
@@ -53,8 +55,8 @@ public partial class MatchRunner : Node2D
     /// <summary>The input device of each player slot. Slots without a device get no input.</summary>
     private InputDevice[] _slotDevices = System.Array.Empty<InputDevice>();
 
-    private GameData _data = null!;
-    private WorldData _world;
+    /// <summary>Null until the stage loads. Without a valid stage, the match does not run.</summary>
+    private IMatchSession? _session;
     private FighterView[] _fighterViews = System.Array.Empty<FighterView>();
     private double _accumulator;
 
@@ -76,16 +78,16 @@ public partial class MatchRunner : Node2D
             return;
         }
 
-        _data = new GameData
+        var data = new GameData
         {
             Stage = stage,
             FighterDefinition = DefaultGameData.CreateFighterDefinition(),
         };
-        _world = WorldData.Create(_data, PlayerCount, Seed);
+        _session = new LocalSession(data, PlayerCount, Seed);
 
         if (StageView != null)
         {
-            StageView.SetStage(_data.Stage);
+            StageView.SetStage(data.Stage);
             StageView.Visible = ShowStageDebug;
         }
 
@@ -137,6 +139,11 @@ public partial class MatchRunner : Node2D
 
     public override void _Process(double delta)
     {
+        if (_session == null)
+        {
+            return;
+        }
+
         _accumulator += delta;
 
         int ticks = 0;
@@ -144,7 +151,11 @@ public partial class MatchRunner : Node2D
         {
             _accumulator -= TickDuration;
             ticks++;
-            Simulator.Tick(ref _world, ReadInput(), _data);
+            for (int slot = 0; slot < _slotDevices.Length; slot++)
+            {
+                _session.SetLocalInput(slot, _slotDevices[slot].Read());
+            }
+            _session.AdvanceFrame();
         }
 
         if (ticks == MaxTicksPerFrame)
@@ -162,20 +173,20 @@ public partial class MatchRunner : Node2D
     /// Debug text: one line for each value, numbers with a fixed width. With the monospace font of the label,
     /// the columns do not move when the values change.
     /// </summary>
-    private string BuildDebugText()
+    private static string BuildDebugText(in WorldData world, FighterDefinitionData definition)
     {
         var text = new StringBuilder();
-        text.AppendLine($"Frame {_world.Frame,8}   Hash {_world.ComputeHash():X16}");
-        text.AppendLine($"Round {_world.Round,8}   {_world.Phase} ({_world.PhaseTimer})");
+        text.AppendLine($"Frame {world.Frame,8}   Hash {world.ComputeHash():X16}");
+        text.AppendLine($"Round {world.Round,8}   {world.Phase} ({world.PhaseTimer})");
         for (int i = 0; i < GameConstants.MaxPlayers; i++)
         {
-            ref readonly FighterData f = ref _world.Fighters[i];
+            ref readonly FighterData f = ref world.Fighters[i];
             if (!f.Active)
             {
                 continue;
             }
 
-            string state = _data.FighterDefinition.States[f.StateId].Name;
+            string state = definition.States[f.StateId].Name;
             text.AppendLine();
             text.AppendLine($"P{i + 1}  {state,-16} frame {f.StateFrame,5}");
             text.AppendLine($"    Position  {FormatVector(f.Position)}");
@@ -227,28 +238,26 @@ public partial class MatchRunner : Node2D
         }
     }
 
-    private FrameInput ReadInput()
-    {
-        FrameInput input = default;
-        for (int i = 0; i < _slotDevices.Length; i++)
-        {
-            input[i] = _slotDevices[i].Read();
-        }
-        return input;
-    }
 
     private void RefreshViews()
     {
-        for (int i = 0; i < _fighterViews.Length; i++)
+        if (_session == null)
         {
-            _fighterViews[i].Refresh(_world.Fighters[i], _data.FighterDefinition, ShowCombatDebug);
+            return;
         }
 
-        Hud?.Refresh(_world, _data.FighterDefinition, PlayerColors);
+        ref readonly WorldData world = ref _session.World;
+        FighterDefinitionData definition = _session.Data.FighterDefinition;
+        for (int i = 0; i < _fighterViews.Length; i++)
+        {
+            _fighterViews[i].Refresh(world.Fighters[i], definition, ShowCombatDebug);
+        }
+
+        Hud?.Refresh(world, definition, PlayerColors);
 
         if (DebugLabel != null)
         {
-            DebugLabel.Text = BuildDebugText();
+            DebugLabel.Text = BuildDebugText(world, definition);
         }
     }
 }
