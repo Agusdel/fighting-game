@@ -1,9 +1,46 @@
 [gd_scene format=3 uid="uid://b4bwyhe6dc7m4"]
 
-[node name="MainMenu" type="Control" unique_id=119229826]
+[ext_resource type="Script" uid="uid://bxdrsory8kdhb" path="res://src/MainMenu/MainMenuScreen.cs" id="1_isws5"]
+
+[node name="MainMenu" type="Control" unique_id=119229826 node_paths=PackedStringArray("PlayLocalButton", "PlayOnlineButton", "QuitButton")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+script = ExtResource("1_isws5")
+PlayLocalButton = NodePath("Center/Items/PlayLocal")
+PlayOnlineButton = NodePath("Center/Items/PlayOnline")
+QuitButton = NodePath("Center/Items/Quit")
+
+[node name="Center" type="CenterContainer" parent="." unique_id=2021713899]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="Items" type="VBoxContainer" parent="Center" unique_id=1409736935]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="Title" type="Label" parent="Center/Items" unique_id=641146887]
+layout_mode = 2
+theme_override_font_sizes/font_size = 48
+text = "Fighting Game"
+horizontal_alignment = 1
+
+[node name="PlayLocal" type="Button" parent="Center/Items" unique_id=1244437905]
+custom_minimum_size = Vector2(240, 48)
+layout_mode = 2
+text = "Play Local"
+
+[node name="PlayOnline" type="Button" parent="Center/Items" unique_id=1241597320]
+custom_minimum_size = Vector2(240, 48)
+layout_mode = 2
+text = "Play Online"
+
+[node name="Quit" type="Button" parent="Center/Items" unique_id=1181972195]
+custom_minimum_size = Vector2(240, 48)
+layout_mode = 2
+text = "Quit"

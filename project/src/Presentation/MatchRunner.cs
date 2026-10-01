@@ -1,6 +1,8 @@
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
+using FightingGame.App;
 using FightingGame.Authoring;
 using FightingGame.Core;
 using FightingGame.PlayerInput;
@@ -18,6 +20,9 @@ namespace FightingGame.Presentation;
 /// The simulation runs at <see cref="GameConstants.TickRate"/> ticks per second, independent of the render frame rate.
 /// The accumulator uses a double. This is safe for determinism: it only decides when a tick runs,
 /// never what a tick computes. The input of each tick is a plain <see cref="InputFlags"/> value.
+///
+/// The app gives the match a <see cref="MatchSetup"/> with <see cref="Setup"/> before the match enters the tree.
+/// When the scene runs alone (F6 in the editor), the match builds a default setup from its exports.
 /// </remarks>
 public partial class MatchRunner : Node2D
 {
@@ -26,13 +31,9 @@ public partial class MatchRunner : Node2D
     /// <summary>If rendering stops for a long time, run at most this many ticks in one frame, and drop the rest of the time.</summary>
     private const int MaxTicksPerFrame = 5;
 
-    private static readonly Color[] PlayerColors =
-    {
-        new(0.9f, 0.3f, 0.3f),
-        new(0.3f, 0.5f, 0.95f),
-        new(0.3f, 0.85f, 0.4f),
-        new(0.95f, 0.8f, 0.2f),
-    };
+    private static readonly StringName PauseAction = "match_pause";
+
+    // Default setup, used only when the scene runs alone (no Setup call).
 
     /// <summary>A stage scene. Its root must be a <see cref="StageRoot"/> (stage scenes inherit StageBase.tscn).</summary>
     [Export] public PackedScene? StageScene { get; set; }
@@ -50,28 +51,34 @@ public partial class MatchRunner : Node2D
     [Export] public Node2D? FightersRoot { get; set; }
     [Export] public Label? DebugLabel { get; set; }
 
-    private InputDevices? _inputDevices;
+    /// <summary>Only for the default setup: the devices that this match owns (and disposes).</summary>
+    private InputDevices? _ownInputDevices;
 
-    /// <summary>The input device of each player slot. Slots without a device get no input.</summary>
-    private InputDevice[] _slotDevices = System.Array.Empty<InputDevice>();
+    private MatchSetup? _setup;
 
     /// <summary>Null until the stage loads. Without a valid stage, the match does not run.</summary>
     private IMatchSession? _session;
     private FighterView[] _fighterViews = System.Array.Empty<FighterView>();
     private double _accumulator;
 
+    /// <summary>Raised when a player asks to leave the match (the pause action: Esc or the controller Start button).</summary>
+    public event Action? ExitRequested;
+
+    /// <summary>Sets the players, seed, stage, and rules. Call it before the match enters the tree.</summary>
+    public void Setup(MatchSetup setup)
+    {
+        if (IsInsideTree())
+        {
+            throw new InvalidOperationException("MatchRunner.Setup must be called before the match enters the tree.");
+        }
+        _setup = setup;
+    }
+
     public override void _Ready()
     {
-        // Default devices: keyboard 1, keyboard 2, then the connected controllers, in slot order.
-        _inputDevices = new InputDevices();
-        IReadOnlyList<InputDevice> devices = _inputDevices.All;
-        _slotDevices = new InputDevice[Mathf.Min(PlayerCount, devices.Count)];
-        for (int i = 0; i < _slotDevices.Length; i++)
-        {
-            _slotDevices[i] = devices[i];
-        }
+        _setup ??= CreateDefaultSetup();
 
-        StageData? stage = LoadStage();
+        StageData? stage = LoadStage(_setup.StageScene);
         if (stage == null)
         {
             SetProcess(false);
@@ -82,8 +89,9 @@ public partial class MatchRunner : Node2D
         {
             Stage = stage,
             FighterDefinition = DefaultGameData.CreateFighterDefinition(),
+            Rules = _setup.Rules,
         };
-        _session = new LocalSession(data, PlayerCount, Seed);
+        _session = new LocalSession(data, _setup.PlayerCount, _setup.Seed);
 
         if (StageView != null)
         {
@@ -95,7 +103,7 @@ public partial class MatchRunner : Node2D
         _fighterViews = new FighterView[GameConstants.MaxPlayers];
         for (int i = 0; i < GameConstants.MaxPlayers; i++)
         {
-            var view = new FighterView { Name = $"Fighter{i}", BodyColor = PlayerColors[i] };
+            var view = new FighterView { Name = $"Fighter{i}", BodyColor = PlayerColors.Of(i) };
             fightersRoot.AddChild(view);
             _fighterViews[i] = view;
         }
@@ -112,12 +120,23 @@ public partial class MatchRunner : Node2D
 
     public override void _ExitTree()
     {
-        _inputDevices?.Dispose();
-        _inputDevices = null;
+        _ownInputDevices?.Dispose();
+        _ownInputDevices = null;
     }
 
     public override void _UnhandledInput(InputEvent @event)
     {
+        if (@event.IsActionPressed(PauseAction))
+        {
+            GetViewport().SetInputAsHandled();
+            if (ExitRequested == null)
+            {
+                GD.Print("MatchRunner: the pause action has no effect when the match scene runs alone.");
+            }
+            ExitRequested?.Invoke();
+            return;
+        }
+
         if (@event is not InputEventKey { Pressed: true, Echo: false } key)
         {
             return;
@@ -151,9 +170,9 @@ public partial class MatchRunner : Node2D
         {
             _accumulator -= TickDuration;
             ticks++;
-            for (int slot = 0; slot < _slotDevices.Length; slot++)
+            for (int slot = 0; slot < _setup!.PlayerCount; slot++)
             {
-                _session.SetLocalInput(slot, _slotDevices[slot].Read());
+                _session.SetLocalInput(slot, _setup.SlotDevices[slot].Read());
             }
             _session.AdvanceFrame();
         }
@@ -203,20 +222,36 @@ public partial class MatchRunner : Node2D
         value.ToFloat().ToString("0.00", CultureInfo.InvariantCulture).PadLeft(8);
 
     /// <summary>
-    /// Adds the stage scene as the first child (so it draws behind the fighters) and converts it to stage data.
-    /// Returns null and logs all errors if the stage is not valid.
+    /// The setup when the scene runs alone: the exports (stage, player count, seed), and for each slot the next
+    /// device of keyboard 1, keyboard 2, then the connected controllers. Slots without a device are not created.
     /// </summary>
-    private StageData? LoadStage()
+    private MatchSetup CreateDefaultSetup()
     {
         if (StageScene == null)
         {
-            GD.PushError("MatchRunner: StageScene is not set.");
-            return null;
+            throw new InvalidOperationException("MatchRunner: StageScene is not set.");
         }
 
-        if (StageScene.Instantiate() is not StageRoot stageRoot)
+        _ownInputDevices = new InputDevices();
+        IReadOnlyList<InputDevice> devices = _ownInputDevices.All;
+        var slotDevices = new List<InputDevice>();
+        for (int i = 0; i < PlayerCount && i < devices.Count; i++)
         {
-            GD.PushError($"MatchRunner: the root of '{StageScene.ResourcePath}' is not a StageRoot.");
+            slotDevices.Add(devices[i]);
+        }
+
+        return new MatchSetup { SlotDevices = slotDevices, Seed = Seed, StageScene = StageScene };
+    }
+
+    /// <summary>
+    /// Adds the stage scene as the first child (so it draws behind the fighters) and converts it to stage data.
+    /// Returns null and logs all errors if the stage is not valid.
+    /// </summary>
+    private StageData? LoadStage(PackedScene stageScene)
+    {
+        if (stageScene.Instantiate() is not StageRoot stageRoot)
+        {
+            GD.PushError($"MatchRunner: the root of '{stageScene.ResourcePath}' is not a StageRoot.");
             return null;
         }
 
@@ -228,7 +263,7 @@ public partial class MatchRunner : Node2D
         try
         {
             StageData stage = StageConverter.Convert(stageRoot);
-            GD.Print($"Stage '{StageScene.ResourcePath}' loaded. Stage hash: {stage.ComputeHash():X16}");
+            GD.Print($"Stage '{stageScene.ResourcePath}' loaded. Stage hash: {stage.ComputeHash():X16}");
             return stage;
         }
         catch (StageConversionException exception)
@@ -253,7 +288,7 @@ public partial class MatchRunner : Node2D
             _fighterViews[i].Refresh(world.Fighters[i], definition, ShowCombatDebug);
         }
 
-        Hud?.Refresh(world, definition, PlayerColors);
+        Hud?.Refresh(world, definition, PlayerColors.All);
 
         if (DebugLabel != null)
         {

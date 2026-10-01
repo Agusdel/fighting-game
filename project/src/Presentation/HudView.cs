@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using FightingGame.Core;
 using FightingGame.Simulation;
 using Godot;
@@ -22,10 +23,10 @@ public partial class HudView : Node2D
     private readonly bool[] _active = new bool[GameConstants.MaxPlayers];
     private readonly float[] _healthRatio = new float[GameConstants.MaxPlayers];
     private readonly int[] _health = new int[GameConstants.MaxPlayers];
-    private Color[] _colors = System.Array.Empty<Color>();
+    private IReadOnlyList<Color> _colors = System.Array.Empty<Color>();
     private string _result = "";
 
-    public void Refresh(in WorldData world, FighterDefinitionData definition, Color[] playerColors)
+    public void Refresh(in WorldData world, FighterDefinitionData definition, IReadOnlyList<Color> playerColors)
     {
         _colors = playerColors;
         int maxHealth = definition.Stats.MaxHealth;
@@ -62,7 +63,7 @@ public partial class HudView : Node2D
                 continue;
             }
 
-            Color color = i < _colors.Length ? _colors[i] : Colors.White;
+            Color color = i < _colors.Count ? _colors[i] : Colors.White;
             var origin = new Vector2(i * Spacing, 0);
             DrawString(font, origin + new Vector2(0, BarSize.Y - 1), $"P{i + 1}", HorizontalAlignment.Left, -1, 14, color);
 

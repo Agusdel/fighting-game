@@ -15,7 +15,7 @@ Update this section at the end of each work session.
 - **Done:** M0, M1, M2, M3, M4. `Match.tscn` runs up to 4 fighters on `Stage01.tscn` with the data-driven state machine, two attacks with direction variants, hitstop, defeat, and round restart. Debug drawing: F1 stage boxes, F2 hurtboxes and hitboxes. HUD health bars.
 - **Open in M3:** the piece scenes `StageSimpleStructure.tscn` and `StageSimplePlatform.tscn` wait for art. When art exists, turn off `ShowStageDebug` and `ShowCombatDebug` on the `Match` node.
 - **To tune (in the game):** movement values (`DefaultGameData.CreateFighterStats`) and attack values (`DefaultGameData.CreateFighterDefinition`).
-- **Next:** M5 (local multiplayer), design agreed in section 13. Step 1 (input actions and devices) is done; the controller copies are not tested yet (no controller on the development machine). Step 2 (session layer) is done. Next is step 3 (app root and main menu: the user first moves the existing scenes, see 13.7).
+- **Next:** M5 (local multiplayer), design agreed in section 13. Step 1 (input actions and devices) is done; the controller copies are not tested yet (no controller on the development machine). Steps 2 (session layer) and 3 (app root and main menu) are done. Next is step 4 (lobby).
 - **Small items for later:** input buffer (a press on the last frame of a busy state is lost), review the `Data` names (section 12.3), tune movement and attack values in the game.
 - **Before the first public build:** create `scripts/export.sh` (see section 10).
 
@@ -944,9 +944,9 @@ public interface IMatchSession
 
 ### 13.6 Main menu and lobby
 
-Main menu (`MainMenu.tscn`): title, **Play Local**, **Play Online** (disabled until M7), **Quit**.
+Main menu (`MainMenu.tscn`, script `MainMenuScreen`): title, **Play Local**, **Play Online** (disabled until M7), **Quit**.
 
-Lobby (`Lobby.tscn`):
+Lobby (`Lobby.tscn`, script `LobbyScreen`):
 - One `LobbyPlayerSlot` for each player slot, created in code from `GameConstants.MaxPlayers` (no fixed count in the scene).
 - A free slot shows "Press a button to join". A joined slot shows "Player N", the device name, and the player color.
 - Join: `Jump` or `Attack1` on a device that is not in a slot puts it in the first free slot.
@@ -963,15 +963,15 @@ Scenes, one folder for each part of the game (each folder holds all scenes of th
 ```
 project/scenes/
   Main.tscn                     app root (main scene)
-  MainMenu/MainMenu.tscn
-  Lobby/Lobby.tscn
-  Lobby/LobbyPlayerSlot.tscn
-  Match/Match.tscn
-  Stages/StageBase.tscn
-  Stages/Stage01.tscn
+  main_menu/MainMenu.tscn
+  lobby/Lobby.tscn
+  lobby/LobbyPlayerSlot.tscn
+  match/Match.tscn
+  stages/StageBase.tscn
+  stages/Stage01.tscn
 ```
 
-The existing scenes (`Match.tscn`, `MainMenu.tscn`, `stages/StageBase.tscn`, `stages/Stage01.tscn`) are moved by the user in the editor FileSystem dock, which updates all references. The MCP has no file move command.
+The user moved the existing scenes in the editor FileSystem dock (which updates all references). Scene folders use snake_case; script folders under `src/` use PascalCase (like the C# namespaces). This can be made consistent later. Screen classes have the suffix `Screen` (`MainMenuScreen`, `LobbyScreen`): a class with the same name as its namespace (`FightingGame.MainMenu.MainMenu`) gives ambiguous names.
 
 Scripts: new code goes into new folders (`src/App/`, `src/PlayerInput/`, `src/MainMenu/`, `src/Lobby/`). The input folder and namespace are `PlayerInput`, not `Input`: a namespace `FightingGame.Input` would hide Godot's `Input` class in all code under `FightingGame.*`. The existing folders (`src/Presentation/`, `src/Authoring/`) stay.
 
@@ -981,5 +981,10 @@ Each step stops for review.
 
 1. **Input.** Create the input actions (MCP), `InputDevice`, `InputDevices`. `MatchRunner` uses `InputDevice` (`keyboard1`, `keyboard2`) in place of `KeyboardInputMap`. Test in the game, also with a controller if one is available. (Done. 22 actions created with `scripts/godot-rpc.mjs` (plugin command `set_input_action`, physical keys, device "All devices"). Both keyboard sets tested in the game. Controllers not tested: no controller on the development machine. `KeyboardInputMap` is deleted. `MatchRunner` gives slot i the i-th device of `InputDevices.All` until the lobby exists.)
 2. **Session.** `IMatchSession`, `LocalSession`, tests. `MatchRunner` uses the session. (Done. 6 new tests: same start as `WorldData.Create`, same frames as `Simulator.Tick` over 300 random frames, inputs cleared after each frame, invalid slot rejected. `LocalSession` clears the inputs after each frame: a slot without new input has no buttons held, never the old buttons. `MatchRunner` has no `WorldData` of its own any more: it calls `SetLocalInput` and `AdvanceFrame`, and the views read `IMatchSession.World`.)
-3. **App root and main menu.** The user moves the existing scenes. `Main.tscn`, `MatchSetup`, `MainMenu.tscn`, screen switching, main scene setting. Flow: menu → match (with a default setup) → Esc → menu.
+3. **App root and main menu.** The user moves the existing scenes. `Main.tscn`, `MatchSetup`, `MainMenu.tscn`, screen switching, main scene setting. Flow: menu → match (with a default setup) → Esc → menu. (Done. Tested in the game: menu → Enter → match with 2 players → Esc → menu. `Match.tscn` still runs alone.)
+   - `Main.tscn` (root `Node` with `Main.cs`) is the main scene. Exports: `MainMenuScene`, `MatchScene`, `StageScene`. Until the lobby exists, "Play Local" starts a match with the first two input devices.
+   - `MainMenuScreen` (script of `MainMenu.tscn`): `CenterContainer` > `VBoxContainer` with the title and the three buttons. "Play Local" has the focus at start, so keyboard and controller navigation work (`ui_*` actions).
+   - `MatchRunner.Setup(MatchSetup)` must be called before the match enters the tree. Without it, the match builds a default setup from its exports; slots without an input device are not created.
+   - `MatchRunner.ExitRequested` is raised on `match_pause` (Esc, controller Start).
+   - `PlayerColors` (`src/Presentation/PlayerColors.cs`) holds the slot colors for all views.
 4. **Lobby.** `Lobby.tscn`, `LobbyPlayerSlot.tscn`, join and leave, start and back. Full flow: menu → lobby → match → Esc → lobby.

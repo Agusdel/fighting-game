@@ -1,0 +1,12 @@
+[gd_scene format=3 uid="uid://bnu32xuxc00yv"]
+
+[ext_resource type="Script" uid="uid://b5bec1w4knmp8" path="res://src/App/Main.cs" id="1_rarhs"]
+[ext_resource type="PackedScene" uid="uid://b4bwyhe6dc7m4" path="res://scenes/main_menu/MainMenu.tscn" id="2_vcsgt"]
+[ext_resource type="PackedScene" uid="uid://o0iv8jscfomq" path="res://scenes/match/Match.tscn" id="3_c01mt"]
+[ext_resource type="PackedScene" uid="uid://ciw86rqslsv8n" path="res://scenes/stages/Stage01.tscn" id="4_nxtc6"]
+
+[node name="Main" type="Node" unique_id=1624818840]
+script = ExtResource("1_rarhs")
+MainMenuScene = ExtResource("2_vcsgt")
+MatchScene = ExtResource("3_c01mt")
+StageScene = ExtResource("4_nxtc6")
