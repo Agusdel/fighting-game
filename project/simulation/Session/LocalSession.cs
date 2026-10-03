@@ -32,10 +32,11 @@ public sealed class LocalSession : IMatchSession
         _nextInput[slot] = input;
     }
 
-    /// <summary>Runs one frame with the inputs set since the last frame, then clears them.</summary>
-    public void AdvanceFrame()
+    /// <summary>Runs one frame with the inputs set since the last frame, then clears them. Always returns true.</summary>
+    public bool AdvanceFrame()
     {
         Simulator.Tick(ref _world, _nextInput, Data);
         _nextInput = default;
+        return true;
     }
 }

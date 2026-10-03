@@ -70,9 +70,9 @@ public sealed class SyncTestSession : IMatchSession
 
     /// <summary>
     /// Runs one frame with the inputs set since the last frame and clears them, then checks the last frames again.
-    /// Throws <see cref="SyncTestException"/> when a frame gives a different state the second time.
+    /// Throws <see cref="SyncTestException"/> when a frame gives a different state the second time. Always returns true.
     /// </summary>
-    public void AdvanceFrame()
+    public bool AdvanceFrame()
     {
         _inputs.Set(_world.Frame, _nextInput);
         _nextInput = default;
@@ -80,6 +80,7 @@ public sealed class SyncTestSession : IMatchSession
         _snapshots.Save(_world);
 
         _world = RunAgainFromSnapshot(Math.Max(0, _world.Frame - CheckDistance), _world.Frame);
+        return true;
     }
 
     /// <summary>Loads the snapshot of <paramref name="fromFrame"/> and runs it to <paramref name="toFrame"/>. Checks each frame.</summary>

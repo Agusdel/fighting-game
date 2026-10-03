@@ -68,42 +68,12 @@ public class SyncTestSessionTests
         {
             for (int slot = 0; slot < Players; slot++)
             {
-                session.SetLocalInput(slot, BotInput(session.World, slot, ref rng));
+                session.SetLocalInput(slot, TestBot.Input(session.World, slot, ref rng));
             }
             session.AdvanceFrame();
         }
 
         Assert.True(session.World.Round > 5, $"The bot inputs must end many rounds, or the test proves nothing (round {session.World.Round}).");
-    }
-
-    /// <summary>
-    /// A simple test bot: it walks to the nearest other fighter, and near it presses random buttons
-    /// (attacks, jumps, directions). With random inputs only, the fighters seldom meet.
-    /// </summary>
-    private static InputFlags BotInput(in WorldData world, int slot, ref FixedRng rng)
-    {
-        FighterData self = world.Fighters[slot];
-        Fixed? nearestDx = null;
-        for (int i = 0; i < GameConstants.MaxPlayers; i++)
-        {
-            FighterData other = world.Fighters[i];
-            if (i == slot || !other.Active || other.Health <= 0)
-            {
-                continue;
-            }
-            Fixed dx = other.Position.X - self.Position.X;
-            if (nearestDx == null || Fixed.Abs(dx) < Fixed.Abs(nearestDx.Value))
-            {
-                nearestDx = dx;
-            }
-        }
-
-        if (nearestDx is { } distance && Fixed.Abs(distance) > Fixed.FromInt(60))
-        {
-            InputFlags walk = distance > Fixed.Zero ? InputFlags.Right : InputFlags.Left;
-            return rng.NextInt(30) == 0 ? walk | InputFlags.Jump : walk;
-        }
-        return (InputFlags)rng.NextInt(1 << 7);
     }
 
     // A hook that breaks the hook rules: it keeps a value in a static field, outside the world state.
@@ -121,7 +91,7 @@ public class SyncTestSessionTests
         s_hiddenCounter = 0;
         var session = new SyncTestSession(data, 1, 1);
 
-        SyncTestException error = Assert.Throws<SyncTestException>(session.AdvanceFrame);
+        SyncTestException error = Assert.Throws<SyncTestException>(() => session.AdvanceFrame());
 
         // First run of frame 0 -> 1: StateVar1 = 0. Second run from the snapshot of frame 0: StateVar1 = 1.
         Assert.Equal(1, error.Frame);
