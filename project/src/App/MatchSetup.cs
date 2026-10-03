@@ -26,6 +26,8 @@ public sealed class MatchSetup
 
     public MatchRulesData Rules { get; init; } = new();
 
+    public MatchSessionType SessionType { get; init; } = MatchSessionType.Local;
+
     public int PlayerCount => SlotDevices.Count;
 
     /// <summary>A new random seed for a match. Not used inside the simulation.</summary>

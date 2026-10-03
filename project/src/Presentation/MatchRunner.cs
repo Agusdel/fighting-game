@@ -39,6 +39,7 @@ public partial class MatchRunner : Node2D
     [Export] public PackedScene? StageScene { get; set; }
     [Export(PropertyHint.Range, "1,4")] public int PlayerCount { get; set; } = 1;
     [Export] public ulong Seed { get; set; } = 1;
+    [Export] public MatchSessionType SessionType { get; set; } = MatchSessionType.Local;
 
     /// <summary>Shows the collision boxes of the stage. F1 switches it on and off in the game.</summary>
     [Export] public bool ShowStageDebug { get; set; }
@@ -60,6 +61,9 @@ public partial class MatchRunner : Node2D
     private IMatchSession? _session;
     private FighterView[] _fighterViews = System.Array.Empty<FighterView>();
     private double _accumulator;
+
+    /// <summary>Set when a <see cref="SyncTestSession"/> finds a desync. The match stops and shows the report.</summary>
+    private SyncTestException? _syncTestError;
 
     /// <summary>Raised when a player asks to leave the match (the pause action: Esc or the controller Start button).</summary>
     public event Action? ExitRequested;
@@ -91,7 +95,11 @@ public partial class MatchRunner : Node2D
             FighterDefinition = DefaultGameData.CreateFighterDefinition(),
             Rules = _setup.Rules,
         };
-        _session = new LocalSession(data, _setup.PlayerCount, _setup.Seed);
+        _session = _setup.SessionType switch
+        {
+            MatchSessionType.SyncTest => new SyncTestSession(data, _setup.PlayerCount, _setup.Seed),
+            _ => new LocalSession(data, _setup.PlayerCount, _setup.Seed),
+        };
 
         if (StageView != null)
         {
@@ -158,7 +166,7 @@ public partial class MatchRunner : Node2D
 
     public override void _Process(double delta)
     {
-        if (_session == null)
+        if (_session == null || _syncTestError != null)
         {
             return;
         }
@@ -174,7 +182,15 @@ public partial class MatchRunner : Node2D
             {
                 _session.SetLocalInput(slot, _setup.SlotDevices[slot].Read());
             }
-            _session.AdvanceFrame();
+            try
+            {
+                _session.AdvanceFrame();
+            }
+            catch (SyncTestException exception)
+            {
+                StopWithSyncTestError(exception);
+                return;
+            }
         }
 
         if (ticks == MaxTicksPerFrame)
@@ -189,12 +205,33 @@ public partial class MatchRunner : Node2D
     }
 
     /// <summary>
+    /// Freezes the match (the views keep the last state) and shows the report on top of the debug text.
+    /// The pause action still leaves the match.
+    /// </summary>
+    private void StopWithSyncTestError(SyncTestException exception)
+    {
+        _syncTestError = exception;
+        GD.PushError(exception.Message);
+        RefreshViews();
+    }
+
+    /// <summary>The first line of the debug text: how the match runs.</summary>
+    private string SessionDescription() => _session switch
+    {
+        SyncTestSession syncTest => _syncTestError == null
+            ? $"SyncTest (check distance {syncTest.CheckDistance})"
+            : "SyncTest: DESYNC, the match is stopped",
+        _ => "Local",
+    };
+
+    /// <summary>
     /// Debug text: one line for each value, numbers with a fixed width. With the monospace font of the label,
     /// the columns do not move when the values change.
     /// </summary>
-    private static string BuildDebugText(in WorldData world, FighterDefinitionData definition)
+    private static string BuildDebugText(string sessionDescription, in WorldData world, FighterDefinitionData definition)
     {
         var text = new StringBuilder();
+        text.AppendLine(sessionDescription);
         text.AppendLine($"Frame {world.Frame,8}   Hash {world.ComputeHash():X16}");
         text.AppendLine($"Round {world.Round,8}   {world.Phase} ({world.PhaseTimer})");
         for (int i = 0; i < GameConstants.MaxPlayers; i++)
@@ -240,7 +277,7 @@ public partial class MatchRunner : Node2D
             slotDevices.Add(devices[i]);
         }
 
-        return new MatchSetup { SlotDevices = slotDevices, Seed = Seed, StageScene = StageScene };
+        return new MatchSetup { SlotDevices = slotDevices, Seed = Seed, StageScene = StageScene, SessionType = SessionType };
     }
 
     /// <summary>
@@ -292,7 +329,9 @@ public partial class MatchRunner : Node2D
 
         if (DebugLabel != null)
         {
-            DebugLabel.Text = BuildDebugText(world, definition);
+            string debugText = BuildDebugText(SessionDescription(), world, definition);
+            DebugLabel.Text = _syncTestError == null ? debugText : $"{_syncTestError.Message}\n\n{debugText}";
+            DebugLabel.Modulate = _syncTestError == null ? Colors.White : Colors.OrangeRed;
         }
     }
 }

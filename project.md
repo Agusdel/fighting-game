@@ -14,8 +14,8 @@ Update this section at the end of each work session.
 
 - **Done:** M0–M5. The game starts at the main menu (`Main.tscn`): Play Local → lobby (players join with their keyboard set or controller) → match → Esc → lobby. Up to 4 fighters on `Stage01.tscn` with the data-driven state machine, two attacks with direction variants, hitstop, defeat, and round restart. Debug drawing: F1 stage boxes, F2 hurtboxes, hitboxes, and state progress bar. HUD health bars.
 - **Open in M3:** the piece scenes `StageSimpleStructure.tscn` and `StageSimplePlatform.tscn` wait for art. When art exists, turn off `ShowStageDebug` and `ShowCombatDebug` on the `Match` node.
-- **Now:** M6 (rollback, offline), SyncTest part (section 14, agreed). Steps 1 (buffers) and 2 (`SyncTestSession`) are done.
-- **Next:** M6 step 3 (SyncTest in the game). After step 3: design `RollbackSession` with the user. Topics: input queue and prediction, `RollbackSession` behind `IMatchSession`, `LoopbackTransport` with simulated latency and loss, what the views do after a rollback.
+- **Now:** M6 (rollback, offline). The SyncTest part (section 14, steps 1–3) is done. To use it, set `SessionType` = `SyncTest` on the `Main` node (or on the `Match` node for a standalone run).
+- **Next:** design `RollbackSession` with the user. Topics: input queue and prediction, `RollbackSession` behind `IMatchSession`, `LoopbackTransport` with simulated latency and loss, what the views do after a rollback.
 - **Small items for later:** input buffer (a press on the last frame of a busy state is lost), input latch (a tap shorter than one tick is lost, 13.2), pause menu (Esc / controller Start; now it goes back to the lobby), review the `Data` names (section 12.3), tune movement and attack values (better when fighter states can be authored in the editor, M10).
 - **Before the first public build:** create `scripts/export.sh` (see section 10).
 
@@ -1049,4 +1049,7 @@ Each step stops for review.
    - `DefaultGameData.CreateFighterDefinition(FighterStats? stats = null)`: optional stats, for tests with low health.
    - Checked with a deliberate bug (inputs one frame off in the second run): SyncTest reports frame 2 with `StateId`, `StateFrame`, and `PrevInput` of the fighter that differs.
    - Later (optional): show state names in place of `StateId` numbers in the report.
-3. **Godot side.** `MatchSetup.SessionType`, the exports, the error report in the game. The user plays with SyncTest on.
+3. **Godot side.** `MatchSetup.SessionType`, the exports, the error report in the game. The user plays with SyncTest on. (Done. Tested in the game with the MCP: menu → lobby → match with 2 players in SyncTest, walk, light and heavy hits (P2 health 70), more than 10000 frames with no desync, 77 FPS with 9 ticks per frame. Error display tested with a temporary bug (health change in the second run of frame 300): the match stops, the report shows `Fighters[0].Health: 100 -> 99` in red above the debug text, `GD.PushError` logs it, Esc still goes back to the lobby. The temporary bug is removed.)
+   - `MatchSessionType` (`Local`, `SyncTest`) is in `src/App/`. Export `SessionType` on `Main` (for the app flow) and on `MatchRunner` (for a standalone run of `Match.tscn`). Both are `Local` by default; the scene files are not changed.
+   - The first line of the debug text shows the session: `Local`, `SyncTest (check distance 8)`, or `SyncTest: DESYNC, the match is stopped`.
+   - The check distance is always `SyncTestSession.DefaultCheckDistance` (8) in the game. An export for it can come later if needed.

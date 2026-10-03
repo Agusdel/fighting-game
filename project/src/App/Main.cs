@@ -21,6 +21,9 @@ public partial class Main : Node
     /// <summary>The stage for local matches.</summary>
     [Export] public PackedScene? StageScene { get; set; }
 
+    /// <summary>How local matches run. <see cref="MatchSessionType.SyncTest"/> is a debug mode that checks rollback.</summary>
+    [Export] public MatchSessionType SessionType { get; set; } = MatchSessionType.Local;
+
     private InputDevices? _inputDevices;
     private Node? _currentScreen;
 
@@ -61,6 +64,7 @@ public partial class Main : Node
             SlotDevices = players,
             Seed = MatchSetup.NewSeed(),
             StageScene = StageScene ?? throw new System.InvalidOperationException("Main: StageScene is not set."),
+            SessionType = SessionType,
         };
 
         var match = Instantiate<MatchRunner>(MatchScene, nameof(MatchScene));
