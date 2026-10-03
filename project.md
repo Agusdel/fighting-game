@@ -15,7 +15,7 @@ Update this section at the end of each work session.
 - **Done:** M0–M5. The game starts at the main menu (`Main.tscn`): Play Local → lobby (players join with their keyboard set or controller) → match → Esc → lobby. Up to 4 fighters on `Stage01.tscn` with the data-driven state machine, two attacks with direction variants, hitstop, defeat, and round restart. Debug drawing: F1 stage boxes, F2 hurtboxes, hitboxes, and state progress bar. HUD health bars.
 - **Open in M3:** the piece scenes `StageSimpleStructure.tscn` and `StageSimplePlatform.tscn` wait for art. When art exists, turn off `ShowStageDebug` and `ShowCombatDebug` on the `Match` node.
 - **Now:** M6 (rollback, offline). The SyncTest part (section 14, steps 1–3) is done. To use it, set `SessionType` = `SyncTest` on the `Main` node (or on the `Match` node for a standalone run).
-- **Next:** design `RollbackSession` with the user. Topics: input queue and prediction, `RollbackSession` behind `IMatchSession`, `LoopbackTransport` with simulated latency and loss, what the views do after a rollback.
+- **Next:** M6 rollback session (section 15, agreed). Step 1 (messages and loopback transport) is done. Next: step 2 (`RollbackSession`). Topics: input queue and prediction, `RollbackSession` behind `IMatchSession`, `LoopbackTransport` with simulated latency and loss, what the views do after a rollback.
 - **Small items for later:** input buffer (a press on the last frame of a busy state is lost), input latch (a tap shorter than one tick is lost, 13.2), pause menu (Esc / controller Start; now it goes back to the lobby), review the `Data` names (section 12.3), tune movement and attack values (better when fighter states can be authored in the editor, M10).
 - **Before the first public build:** create `scripts/export.sh` (see section 10).
 
@@ -462,6 +462,7 @@ public static class Simulator
 | 2026-09-28 | Fighters can turn in the air: `AirControl` (and `Free` in the air) sets the facing when the state has `CanTurn`. `Jump`, `DoubleJump`, and `Fall` have `CanTurn`. Attacks, `Locked`, and `Knockback` never turn. (This replaces the M2 rule "facing does not change in the air".) |
 | 2026-09-30 | M5 design agreed (section 13): input from InputMap actions (controller template copied per controller), `IMatchSession` / `LocalSession`, app root `Main.tscn` with `MatchSetup`, Smash-style lobby with `LobbyPlayerSlot`, scene folders per part of the game |
 | 2026-10-03 | M6 SyncTest design agreed (section 14): check distance 8, continue from the re-simulated state, stop with a report and a field diff on a mismatch, `SnapshotBuffer` and `InputHistory` shared with `RollbackSession`, `MatchSetup.SessionType` |
+| 2026-10-03 | M6 rollback design agreed (section 15): input delay 2, max prediction 8, prediction = last confirmed input, redundant unreliable input messages, time sync by frame advantage (no clock), hash report every 30 confirmed frames, desync stops the match, `IMatchSession.AdvanceFrame` returns `bool`, in-memory `LoopbackTransport` with its own time, loopback mode in the game |
 
 ---
 
@@ -1053,3 +1054,115 @@ Each step stops for review.
    - `MatchSessionType` (`Local`, `SyncTest`) is in `src/App/`. Export `SessionType` on `Main` (for the app flow) and on `MatchRunner` (for a standalone run of `Match.tscn`). Both are `Local` by default; the scene files are not changed.
    - The first line of the debug text shows the session: `Local`, `SyncTest (check distance 8)`, or `SyncTest: DESYNC, the match is stopped`.
    - The check distance is always `SyncTestSession.DefaultCheckDistance` (8) in the game. An export for it can come later if needed.
+
+---
+
+## 15. Detailed Design: M6 Rollback Session and Loopback Transport
+
+Status: **Agreed** (2026-10-03).
+
+### 15.1 Goals
+
+- `RollbackSession`: one peer of an online match. Its local players have no input lag except the input delay. Remote inputs are predicted, and a wrong prediction is corrected with a rollback.
+- `LoopbackTransport`: an in-memory network with simulated latency, jitter, and packet loss. It is not localhost (no sockets, no OS network). Two or more sessions in one process talk through it. This makes the session testable with exact, repeatable tests. Localhost/LAN comes in M7 with `EnetTransport`.
+- M6 is done when 2–4 sessions over the loopback transport, with latency and loss, end with the same state, and the game can show the feel of a match with latency.
+- Not in M6: connection, host/join, online lobby, disconnect, match start message (M7).
+
+### 15.2 Terms
+
+- **Peer**: one machine (one `RollbackSession`). A peer has one or more local player slots.
+- **Input delay D** (default 2): the input that a local player gives at frame F is used at frame F + D. A remote input then often arrives before it is needed, so fewer rollbacks occur. The local player feels D frames of lag (2 frames = 33 ms).
+- **Confirmed input**: the real input of a slot for a frame (local, or received from its peer).
+- **Prediction**: when the input of a remote slot for a frame is not confirmed, the session uses the last confirmed input of that slot (players often hold the same buttons).
+- **Rollback**: a confirmed input arrives for a frame that already ran with a different prediction. The session loads the snapshot of that frame and runs again to the current frame with the better inputs.
+- **Max prediction W** (default 8, the same as the SyncTest check distance): a peer never runs more than W frames past the last frame where all inputs are confirmed. If it must, it waits (stall). This limits the rollback length and the size of the buffers.
+- **Confirmed frame**: the newest frame whose state depends only on confirmed inputs. It never rolls back.
+
+### 15.3 One frame (`AdvanceFrame`)
+
+1. Poll the transport. For each received message: store the new confirmed inputs, update the acknowledgments, the time sync values, and check desync reports.
+2. If a newly confirmed input differs from the input used at that frame: load the snapshot of the first wrong frame, and run again to the current frame. Save the new snapshots. Predictions after the correction use the new last confirmed input.
+3. Send the input message to each peer (also when the next steps wait, so acknowledgments and old inputs keep flowing).
+4. Wait (return `false`, no tick) if the frame is more than W frames past the confirmed frame, or if time sync asks for a wait.
+5. Store the local inputs (set with `SetLocalInput`) for frame current + D.
+6. Run the tick with the confirmed or predicted inputs. Store the used inputs. Save the snapshot. Return `true`.
+7. When the confirmed frame passes a multiple of the hash interval, record its hash and send it to the peers.
+
+Frames 0 to D − 1 use empty inputs for all slots (confirmed at start). A local input given during a wait is dropped (the same as a frame of lag).
+
+### 15.4 Messages (`project/simulation/Networking/`, namespace `FightingGame.Networking`)
+
+Own binary format, little-endian, with `MessageWriter` / `MessageReader` (span based, no allocation in the frame loop). First byte = message type.
+
+- `InputMessage` (unreliable, each frame, to each peer):
+  - sender frame (for time sync) and sender frame advantage (15.5);
+  - ack: the last frame for which the sender has all inputs of the receiver's slots;
+  - start frame, frame count, then the inputs (`InputFlags`) of each local slot of the sender for each frame. The range starts after the receiver's last ack, so a lost packet is repeated in the next one (redundancy). Max 32 frames.
+- `HashMessage` (unreliable, repeated in the next input messages until acknowledged, or reliable in M7): frame + hash of a confirmed frame.
+
+Received inputs for frames that are already confirmed are ignored. Inputs for future frames (the remote peer runs ahead) are stored.
+
+### 15.5 Time sync (no clock needed)
+
+If one peer runs ahead, the other peer must predict more and roll back more often. So the peer that is ahead waits for some frames.
+
+- At each received `InputMessage`, a peer computes local advantage = local frame − sender frame. Both values include the one-way latency.
+- The message also carries the sender's own advantage. (local advantage − remote advantage) / 2 = how many frames this peer is ahead. The latency cancels out (if it is the same in both directions).
+- Both values are averaged over the last 32 messages. If the result is 1 frame or more, the peer waits 1 frame, at most once every 10 frames (small steps, not visible as a freeze).
+- With more than 2 peers, the peer uses the peer that is most behind.
+
+### 15.6 Desync detection
+
+- Every 30 confirmed frames, each peer sends the hash of that confirmed frame. Each peer keeps the hashes of its last 64 reported confirmed frames.
+- A mismatch is a determinism bug (or a cheat): `AdvanceFrame` throws `DesyncException` (frame, local hash, remote hash, peer). In M6, `MatchRunner` stops the match and shows the report (as for SyncTest). In M7: end the match and go back to the lobby with a message.
+- There is no field diff for a remote desync (the remote state is not sent). A replay tool (M9) can find the field later.
+
+### 15.7 Session layer changes
+
+- `IMatchSession.AdvanceFrame()` returns `bool`: `true` if a frame ran. `LocalSession` and `SyncTestSession` always return `true`.
+- `RollbackSession(GameData data, RollbackSessionSetup setup, INetworkTransport transport)`. `RollbackSessionSetup`: player count, seed, the local slots, the peers and their slots, input delay, max prediction, hash interval.
+- Buffers: `SnapshotBuffer` (capacity W + 2), inputs: confirmed inputs per slot and the used inputs per frame, with capacity for W frames back and the frames that a remote peer can be ahead (64).
+- `RollbackSession.Stats` (debug): rollbacks, longest rollback, frames run again, waits for prediction, waits for time sync, current frame advantage.
+
+### 15.8 Transport
+
+```csharp
+public interface INetworkTransport
+{
+    PeerId LocalPeer { get; }
+    void Send(PeerId peer, ReadOnlySpan<byte> data, DeliveryMode mode);   // Unreliable or Reliable
+    void Poll();                                                           // raises MessageReceived
+    event MessageHandler MessageReceived;                                  // (PeerId from, ReadOnlySpan<byte> data)
+}
+```
+
+- Connection events, host, and join are added in M7.
+- `LoopbackNetwork` creates one `LoopbackTransport` for each peer. It has its own time in milliseconds: tests advance it exactly; the game advances it with the real time.
+- Settings per network: latency (ms, one way), jitter (ms, random 0 to jitter is added, so packets can arrive out of order), loss (%, unreliable messages only). Reliable messages are never lost and keep their order. The random values use a seeded `FixedRng`, so a test run is always the same.
+
+### 15.9 Tests
+
+- 2, 3, and 4 peers (also 2 peers with 2 local players each), with the test bot inputs, with no latency, with latency + jitter, and with 20 % loss: all peers have the same hash at each confirmed frame, and the final confirmed state is equal to a `LocalSession` run with the same inputs (shifted by D).
+- With latency, rollbacks occur (stats > 0), so the test checks the rollback path.
+- 100 % loss: the peers stop at W frames past the confirmed frame and continue when the loss ends.
+- A peer that runs faster (2 ticks in some frames): time sync brings the frame advantage back to near 0.
+- A deliberate desync (a test changes one peer's state): `DesyncException` on the next hash report.
+
+### 15.10 Godot side: loopback mode in the game
+
+- `MatchSessionType.Loopback`: `MatchRunner` creates one `RollbackSession` for each player (each peer has one local slot) on one `LoopbackNetwork`, and runs them all each tick. It shows the world of one peer (F3 selects the next peer).
+- Exports on `Main` and `MatchRunner`: latency, jitter, loss.
+- The debug text shows the shown peer, its stats, and the frame advantage.
+- Views after a rollback: the views draw the current world each frame, and they keep no state of their own, so a rollback shows as a small correction of the positions. Nothing else is needed now. Later (M10): animations already jump to any frame; sounds and effects need rules for a rollback (for example, do not play a sound again if the same event happens again after the rollback).
+
+### 15.11 Implementation steps
+
+1. **Messages and transport.** `MessageWriter`, `MessageReader`, `InputMessage`, `HashMessage`, `INetworkTransport`, `LoopbackNetwork`, `LoopbackTransport`, with tests. (Done. 24 new tests. Code in `project/simulation/Networking/`.)
+   - `PeerId` is a `record struct` with an `int` value. `INetworkTransport.MessageReceived` uses the delegate `MessageHandler(PeerId from, ReadOnlySpan<byte> data)`; the data is valid only during the call.
+   - `MessageReader` throws only `MessageFormatException` on bad data (too short, a value out of range, the wrong type), so the session can ignore a bad packet with one `catch`.
+   - `InputMessage` is a class that is reused (`Read` replaces all values), with a fixed input array: no allocation in the frame loop. Layout: 19 header bytes + 2 bytes per frame per slot; max 275 bytes (`MaxSize`). The slot mask tells which slots are in the message. `HashMessage` is a struct, 13 bytes.
+   - `LoopbackNetwork(peerCount, seed)` with `TimeMs`, `AdvanceTime`, `LatencyMs`, `JitterMs`, `LossPercent`, `Transport(i)`, `PendingCount`. A reliable message is never delivered before the previous reliable message on the same path. The loopback transport allocates a copy for each message (acceptable: tests and debug only).
+   - Checked with deliberate bugs (no reliable order; loss also for reliable messages): the tests fail.
+2. **Rollback session.** Inputs, prediction, rollback, wait at max prediction, `AdvanceFrame` returns `bool`. Tests with 2–4 peers, latency, jitter, loss.
+3. **Time sync and desync detection.** Tests with a faster peer and a deliberate desync.
+4. **Godot side.** Loopback mode in the game. The user plays with latency and checks the feel.
