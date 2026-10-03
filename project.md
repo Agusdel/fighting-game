@@ -14,7 +14,8 @@ Update this section at the end of each work session.
 
 - **Done:** M0–M5. The game starts at the main menu (`Main.tscn`): Play Local → lobby (players join with their keyboard set or controller) → match → Esc → lobby. Up to 4 fighters on `Stage01.tscn` with the data-driven state machine, two attacks with direction variants, hitstop, defeat, and round restart. Debug drawing: F1 stage boxes, F2 hurtboxes, hitboxes, and state progress bar. HUD health bars.
 - **Open in M3:** the piece scenes `StageSimpleStructure.tscn` and `StageSimplePlatform.tscn` wait for art. When art exists, turn off `ShowStageDebug` and `ShowCombatDebug` on the `Match` node.
-- **Next:** M6 (rollback, offline). It starts with a SyncTest mode (section 7). Design first, with the user. Topics to decide: SyncTest session (roll back N frames every frame, compare hashes), input queue and prediction, snapshot ring buffer, `RollbackSession` behind `IMatchSession`, `LoopbackTransport` with simulated latency and loss, what the views do after a rollback.
+- **Now:** M6 (rollback, offline), SyncTest part (section 14, agreed). Step 1 (buffers) is done.
+- **Next:** M6 step 2 (`SyncTestSession`). After step 3: design `RollbackSession` with the user. Topics: input queue and prediction, `RollbackSession` behind `IMatchSession`, `LoopbackTransport` with simulated latency and loss, what the views do after a rollback.
 - **Small items for later:** input buffer (a press on the last frame of a busy state is lost), input latch (a tap shorter than one tick is lost, 13.2), pause menu (Esc / controller Start; now it goes back to the lobby), review the `Data` names (section 12.3), tune movement and attack values (better when fighter states can be authored in the editor, M10).
 - **Before the first public build:** create `scripts/export.sh` (see section 10).
 
@@ -199,7 +200,7 @@ Fighters do not collide with each other (no pushboxes). They pass through each o
 - Configurable input delay (for example 2 frames) to reduce rollbacks.
 - Time sync: a peer that runs ahead of the others waits (skips a frame) so all peers stay close.
 - Desync detection: peers exchange the hash of confirmed frames at an interval. A mismatch is reported.
-- `SessionBase` with implementations: `LocalSession` (no network), `RollbackSession` (online), `SyncTestSession` (debug), `ReplaySession`.
+- `IMatchSession` (section 13.4) with implementations: `LocalSession` (no network), `RollbackSession` (online), `SyncTestSession` (debug, section 14), `ReplaySession`.
 
 ### 3.10 Networking abstraction
 
@@ -460,6 +461,7 @@ public static class Simulator
 | 2026-09-28 | M4 design agreed (section 12). Static fighter definition: `FighterDefinitionData` (names to review later). Shared transitions of `Actionable` states have priority over the state's own transitions. Down attack variant only in the air or on a platform |
 | 2026-09-28 | Fighters can turn in the air: `AirControl` (and `Free` in the air) sets the facing when the state has `CanTurn`. `Jump`, `DoubleJump`, and `Fall` have `CanTurn`. Attacks, `Locked`, and `Knockback` never turn. (This replaces the M2 rule "facing does not change in the air".) |
 | 2026-09-30 | M5 design agreed (section 13): input from InputMap actions (controller template copied per controller), `IMatchSession` / `LocalSession`, app root `Main.tscn` with `MatchSetup`, Smash-style lobby with `LobbyPlayerSlot`, scene folders per part of the game |
+| 2026-10-03 | M6 SyncTest design agreed (section 14): check distance 8, continue from the re-simulated state, stop with a report and a field diff on a mismatch, `SnapshotBuffer` and `InputHistory` shared with `RollbackSession`, `MatchSetup.SessionType` |
 
 ---
 
@@ -992,3 +994,54 @@ Each step stops for review.
    - When a player leaves, the players after it move up one slot (no gaps: the slots of a match are 0 to N-1).
    - After a match, the same players keep their slots (`LobbyScreen.Initialize(devices, previousPlayers)`). A controller that disconnects is removed from its slot.
    - `LobbyPlayerSlot.tscn`: `PanelContainer` with a color bar, the title ("Player N" in the player color, or "Press a button to join"), and the device name.
+
+---
+
+## 14. Detailed Design: M6 Rollback (offline)
+
+Status: **Agreed** (2026-10-03) for the SyncTest part (steps 1–3). The design of `RollbackSession` and `LoopbackTransport` comes after step 3, with the user.
+
+### 14.1 Goals
+
+- Prove that "load an old snapshot + run the same inputs again" gives the same result as the first run, on one machine, with no network.
+- Build the parts that `RollbackSession` uses again: the snapshot buffer and the input history.
+
+### 14.2 SyncTest (from GGPO)
+
+All players are local (as in `LocalSession`). In each `AdvanceFrame` (current frame F, after the tick F + 1):
+
+1. Store the inputs of frame F in the input history. Run the tick. Save the snapshot and the hash of frame F + 1.
+2. Load the snapshot of frame R = max(0, F + 1 − N). N = check distance (default 8, the planned maximum rollback window).
+3. Run frames R to F again with the recorded inputs. After each frame, compare the hash with the saved hash of the first run.
+4. On a mismatch: stop with an error report (frame, the two hashes, the fields that differ).
+5. Continue from the **re-simulated** state (as GGPO does). The match always plays on the rollback path, so a restore bug cannot hide.
+
+Each frame runs N + 1 ticks. Our tick is small, so this is not a problem at 60 Hz.
+
+What SyncTest finds: state outside `WorldData` (static fields, caches in the static data, hooks that keep values), errors in the session bookkeeping (for example an input stored one frame off), and non-deterministic code. What it does not test: prediction, the network, time sync, differences between machines (`RollbackSession` + `LoopbackTransport`, then M7).
+
+### 14.3 Types (`project/simulation/Session/`)
+
+- `SnapshotBuffer`: a ring buffer of `WorldData` + hash, keyed by frame number. `Save(in WorldData)` stores the state under `world.Frame` and computes the hash. Capacity = N + 1. A frame that is not stored (never saved, or overwritten) is an error (exception): it is always a session bug.
+- `InputHistory`: a ring buffer of `FrameInput`, keyed by frame number. Same rules.
+- `SyncTestSession : IMatchSession`: `SyncTestSession(GameData data, int playerCount, ulong seed, int checkDistance = 8)`. Same input rules as `LocalSession` (inputs cleared after each frame, invalid slot rejected).
+- `SyncTestException`: frame, expected hash, actual hash, list of differences.
+- `WorldDataDiff`: compares the fields of two `WorldData` values with reflection (also each fighter and the nested structs) and returns one line for each field that differs (`Fighters[1].Position.X: 100 → 101`). Debug code only: the tick never calls it. It is a small first version of the M9 "state diff" tool.
+
+### 14.4 Godot side
+
+- `MatchSetup.SessionType`: `Local` or `SyncTest`. `Main` has an export to select it (default `Local`). `MatchRunner` has the same export for a standalone run.
+- On a `SyncTestException`, `MatchRunner` freezes the match, shows the report in the debug label, and logs it with `GD.PushError`.
+
+### 14.5 Tests
+
+- Long runs with random inputs from a fixed seed, over many rounds, N = 1 to 8.
+- "Broken hook" test: a test fighter definition with a hook that keeps a counter in a static field. SyncTest must report the desync. This proves that the check works.
+
+### 14.6 Implementation steps
+
+Each step stops for review.
+
+1. **Buffers.** `SnapshotBuffer` and `InputHistory`, with tests. (Done. 12 new tests. `SnapshotBuffer.Get` and `InputHistory.Get` return a `ref readonly` value, so a read does not copy the state. The ring buffer logic is in each class (about 10 lines); a shared generic class was not worth it.)
+2. **SyncTest session.** `SyncTestSession`, `SyncTestException`, `WorldDataDiff`, with tests (also the broken-hook test).
+3. **Godot side.** `MatchSetup.SessionType`, the exports, the error report in the game. The user plays with SyncTest on.
