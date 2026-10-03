@@ -12,10 +12,10 @@ Status: **Draft**. This document is the source of truth for the design. Update i
 
 Update this section at the end of each work session.
 
-- **Done:** M0–M5. The game starts at the main menu (`Main.tscn`): Play Local → lobby (players join with their keyboard set or controller) → match → Esc → lobby. Up to 4 fighters on `Stage01.tscn` with the data-driven state machine, two attacks with direction variants, hitstop, defeat, and round restart. Debug drawing: F1 stage boxes, F2 hurtboxes, hitboxes, and state progress bar. HUD health bars.
+- **Done:** M0–M6. M6: `SyncTestSession`, `RollbackSession` (prediction, rollback, time sync, desync detection), `LoopbackNetwork`, and the debug session types `SyncTest` and `Loopback` (`SessionType` export on `Main` and on `Match`). Before M6: the game starts at the main menu (`Main.tscn`): Play Local → lobby (players join with their keyboard set or controller) → match → Esc → lobby. Up to 4 fighters on `Stage01.tscn` with the data-driven state machine, two attacks with direction variants, hitstop, defeat, and round restart. Debug drawing: F1 stage boxes, F2 hurtboxes, hitboxes, and state progress bar. HUD health bars.
 - **Open in M3:** the piece scenes `StageSimpleStructure.tscn` and `StageSimplePlatform.tscn` wait for art. When art exists, turn off `ShowStageDebug` and `ShowCombatDebug` on the `Match` node.
-- **Now:** M6 (rollback, offline). The SyncTest part (section 14, steps 1–3) is done. To use it, set `SessionType` = `SyncTest` on the `Main` node (or on the `Match` node for a standalone run).
-- **Next:** M6 rollback session (section 15, agreed). Steps 1 (messages, loopback transport), 2 (`RollbackSession`), and 3 (time sync, desync detection) are done. Next: step 4 (loopback mode in the game). Topics: input queue and prediction, `RollbackSession` behind `IMatchSession`, `LoopbackTransport` with simulated latency and loss, what the views do after a rollback.
+- **To check (user):** the feel of a loopback match with latency (`SessionType` = `Loopback` on `Main`, F3 changes the shown player).
+- **Next:** M7 (online with ENet: host/join, online lobby, online match over localhost/LAN, disconnect). Design first, with the user. Open points from M6: time sync threshold (15.11 step 3), `RollbackSession.Dispose` (15.11 step 2).
 - **Small items for later:** input buffer (a press on the last frame of a busy state is lost), input latch (a tap shorter than one tick is lost, 13.2), pause menu (Esc / controller Start; now it goes back to the lobby), review the `Data` names (section 12.3), tune movement and attack values (better when fighter states can be authored in the editor, M10).
 - **Before the first public build:** create `scripts/export.sh` (see section 10).
 
@@ -305,7 +305,7 @@ Each milestone must be runnable and testable before the next one starts.
 | M3 | Editor authoring | Stage authored in `Stage01.tscn` and converted to `StageData`. **Done 2026-09-27** (piece scenes wait for art) |
 | M4 | Combat and fighter state machine (**Done 2026-09-28**) | Data-driven fighter states, two attacks with direction variants, hitboxes, hurtboxes, damage, hitstun, knockback, hitstop (can be disabled), health bars, death and restart. Fair resolution (section 12) |
 | M5 | Local multiplayer (**Done 2026-09-30**) | Main menu (local), lobby with device assignment, 2–4 local players |
-| M6 | Rollback (offline) | First step: SyncTest mode. Then `RollbackSession` with `LoopbackTransport`: two sessions in one process with simulated latency and loss. No desync |
+| M6 | Rollback (offline) (**Done 2026-10-03**) | First step: SyncTest mode. Then `RollbackSession` with `LoopbackTransport`: two sessions in one process with simulated latency and loss. No desync |
 | M7 | Online (ENet) | Host / Join, online lobby, online match over localhost/LAN. Desync detection |
 | M8 | Steam | `SteamTransport` |
 | M9 | Determinism tools | Replay recording, replay viewer with slider, hash check, state diff. Only when needed (the unit tests already check determinism with hashes) |
@@ -1181,4 +1181,8 @@ public interface INetworkTransport
    - Results: a peer with a 5 % faster clock (3000 ticks, 30 ms): 150 time sync waits (= its 150 extra frames), 0 prediction waits, frames equal at the end. Without time sync: 8 frames ahead, 142 prediction waits, 35 % more rollbacks. A late start (30 ticks) is corrected. A different restart delay on one peer is found at the first report after the first round ends; a different max health at frame 0.
    - Observation (tuning, later): the faster peer stays about 1.3 frames ahead (the wait starts at 1 frame), and the peer that is ahead does all the rollbacks. A threshold of 0.5 frames would balance the rollbacks better. Check it when online play can be tested (M7).
    - Checked with deliberate bugs: time sync never waits (2 tests fail), advantage not sent (1 fails), hashes never compared (2 fail).
-4. **Godot side.** Loopback mode in the game. The user plays with latency and checks the feel.
+4. **Godot side.** Loopback mode in the game. The user plays with latency and checks the feel. (Done. 3 new tests. Tested in the game with the MCP: 2 players, 80 ms + 20 ms jitter, 5 % loss: hits, 18 rollbacks (longest 5), 285 hashes compared, no desync, 120 FPS; F3 shows the P2 view. Feel not yet checked by the user.)
+   - `LoopbackMatchSession` (`project/simulation/Session/`, pure C#) implements `IMatchSession`: one `RollbackSession` per player (peer i owns slot i) on one `LoopbackNetwork`. `SetLocalInput(slot)` goes to the peer of the slot; `World` is the world of `ShownPeer`; `ShowNextPeer()`. So `MatchRunner` needs only small changes.
+   - The network time advances by one tick (1000/60 ms) on each `AdvanceFrame`. The game calls it at the tick rate, so this follows the real time (simpler than a separate real-time clock).
+   - `MatchSessionType.Loopback`, `LoopbackSettings(LatencyMs, JitterMs, LossPercent)` in `MatchSetup` (default 50 ms, 10 ms, 2 %). Exports in the group "Loopback session (debug)" on `Main` and `MatchRunner`. With 1 player, a warning, and the match runs as a local match.
+   - `MatchRunner` stops the match on `DesyncException` too (same display as SyncTest). F3 shows the next peer. The debug text shows the network values, rollbacks, waits, confirmed frame, frames ahead, and hashes compared.

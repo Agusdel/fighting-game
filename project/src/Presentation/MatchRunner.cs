@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
 using FightingGame.App;
+using FightingGame.Networking;
 using FightingGame.Authoring;
 using FightingGame.Core;
 using FightingGame.PlayerInput;
@@ -41,6 +42,12 @@ public partial class MatchRunner : Node2D
     [Export] public ulong Seed { get; set; } = 1;
     [Export] public MatchSessionType SessionType { get; set; } = MatchSessionType.Local;
 
+    [ExportSubgroup("Loopback session (debug)")]
+    [Export(PropertyHint.Range, "0,500,1,suffix:ms")] public int LoopbackLatencyMs { get; set; } = 50;
+    [Export(PropertyHint.Range, "0,200,1,suffix:ms")] public int LoopbackJitterMs { get; set; } = 10;
+    [Export(PropertyHint.Range, "0,100,1,suffix:%")] public int LoopbackLossPercent { get; set; } = 2;
+    [ExportGroup("")]
+
     /// <summary>Shows the collision boxes of the stage. F1 switches it on and off in the game.</summary>
     [Export] public bool ShowStageDebug { get; set; }
 
@@ -62,8 +69,11 @@ public partial class MatchRunner : Node2D
     private FighterView[] _fighterViews = System.Array.Empty<FighterView>();
     private double _accumulator;
 
-    /// <summary>Set when a <see cref="SyncTestSession"/> finds a desync. The match stops and shows the report.</summary>
-    private SyncTestException? _syncTestError;
+    /// <summary>
+    /// Set when a debug session finds a desync (<see cref="SyncTestException"/>, <see cref="DesyncException"/>).
+    /// The match stops and shows the report.
+    /// </summary>
+    private Exception? _desyncError;
 
     /// <summary>Raised when a player asks to leave the match (the pause action: Esc or the controller Start button).</summary>
     public event Action? ExitRequested;
@@ -95,11 +105,7 @@ public partial class MatchRunner : Node2D
             FighterDefinition = DefaultGameData.CreateFighterDefinition(),
             Rules = _setup.Rules,
         };
-        _session = _setup.SessionType switch
-        {
-            MatchSessionType.SyncTest => new SyncTestSession(data, _setup.PlayerCount, _setup.Seed),
-            _ => new LocalSession(data, _setup.PlayerCount, _setup.Seed),
-        };
+        _session = CreateSession(data, _setup);
 
         if (StageView != null)
         {
@@ -162,11 +168,17 @@ public partial class MatchRunner : Node2D
             RefreshViews();
             GetViewport().SetInputAsHandled();
         }
+        else if (key.PhysicalKeycode == Key.F3 && _session is LoopbackMatchSession loopback)
+        {
+            loopback.ShowNextPeer();
+            RefreshViews();
+            GetViewport().SetInputAsHandled();
+        }
     }
 
     public override void _Process(double delta)
     {
-        if (_session == null || _syncTestError != null)
+        if (_session == null || _desyncError != null)
         {
             return;
         }
@@ -186,9 +198,9 @@ public partial class MatchRunner : Node2D
             {
                 _session.AdvanceFrame();
             }
-            catch (SyncTestException exception)
+            catch (Exception exception) when (exception is SyncTestException or DesyncException)
             {
-                StopWithSyncTestError(exception);
+                StopWithDesyncError(exception);
                 return;
             }
         }
@@ -208,21 +220,53 @@ public partial class MatchRunner : Node2D
     /// Freezes the match (the views keep the last state) and shows the report on top of the debug text.
     /// The pause action still leaves the match.
     /// </summary>
-    private void StopWithSyncTestError(SyncTestException exception)
+    private void StopWithDesyncError(Exception exception)
     {
-        _syncTestError = exception;
+        _desyncError = exception;
         GD.PushError(exception.Message);
         RefreshViews();
     }
 
-    /// <summary>The first line of the debug text: how the match runs.</summary>
-    private string SessionDescription() => _session switch
+    /// <summary>The session of the setup. A loopback match with 1 player is not possible: it runs as a local match.</summary>
+    private static IMatchSession CreateSession(GameData data, MatchSetup setup)
     {
-        SyncTestSession syncTest => _syncTestError == null
-            ? $"SyncTest (check distance {syncTest.CheckDistance})"
-            : "SyncTest: DESYNC, the match is stopped",
-        _ => "Local",
-    };
+        switch (setup.SessionType)
+        {
+            case MatchSessionType.SyncTest:
+                return new SyncTestSession(data, setup.PlayerCount, setup.Seed);
+            case MatchSessionType.Loopback when setup.PlayerCount >= 2:
+                LoopbackSettings network = setup.Loopback;
+                return new LoopbackMatchSession(data, setup.PlayerCount, setup.Seed, network.LatencyMs, network.JitterMs, network.LossPercent);
+            case MatchSessionType.Loopback:
+                GD.PushWarning("MatchRunner: a loopback match needs 2 or more players. The match runs as a local match.");
+                return new LocalSession(data, setup.PlayerCount, setup.Seed);
+            default:
+                return new LocalSession(data, setup.PlayerCount, setup.Seed);
+        }
+    }
+
+    /// <summary>The first lines of the debug text: how the match runs, and the network values of a loopback match.</summary>
+    private string SessionDescription()
+    {
+        string description = _session switch
+        {
+            SyncTestSession syncTest => $"SyncTest (check distance {syncTest.CheckDistance})",
+            LoopbackMatchSession loopback => DescribeLoopback(loopback),
+            _ => "Local",
+        };
+        return _desyncError == null ? description : $"{description}\nDESYNC: the match is stopped";
+    }
+
+    private string DescribeLoopback(LoopbackMatchSession loopback)
+    {
+        RollbackSession shown = loopback.ShownSession;
+        RollbackSessionStats stats = shown.Stats;
+        LoopbackNetwork network = loopback.Network;
+        string ahead = shown.FramesAhead.ToFloat().ToString("0.00", CultureInfo.InvariantCulture);
+        return $"Loopback: P{loopback.ShownPeer + 1} view (F3: next)   {network.LatencyMs} ms + {network.JitterMs} ms jitter, {network.LossPercent} % loss\n"
+            + $"Rollbacks {stats.Rollbacks,6} (longest {stats.LongestRollback})   Waits: prediction {stats.PredictionWaits}, time sync {stats.TimeSyncWaits}\n"
+            + $"Confirmed {shown.ConfirmedFrame,6}   Ahead {ahead}   Hashes compared {stats.HashesCompared}";
+    }
 
     /// <summary>
     /// Debug text: one line for each value, numbers with a fixed width. With the monospace font of the label,
@@ -277,7 +321,14 @@ public partial class MatchRunner : Node2D
             slotDevices.Add(devices[i]);
         }
 
-        return new MatchSetup { SlotDevices = slotDevices, Seed = Seed, StageScene = StageScene, SessionType = SessionType };
+        return new MatchSetup
+        {
+            SlotDevices = slotDevices,
+            Seed = Seed,
+            StageScene = StageScene,
+            SessionType = SessionType,
+            Loopback = new LoopbackSettings(LoopbackLatencyMs, LoopbackJitterMs, LoopbackLossPercent),
+        };
     }
 
     /// <summary>
@@ -330,8 +381,8 @@ public partial class MatchRunner : Node2D
         if (DebugLabel != null)
         {
             string debugText = BuildDebugText(SessionDescription(), world, definition);
-            DebugLabel.Text = _syncTestError == null ? debugText : $"{_syncTestError.Message}\n\n{debugText}";
-            DebugLabel.Modulate = _syncTestError == null ? Colors.White : Colors.OrangeRed;
+            DebugLabel.Text = _desyncError == null ? debugText : $"{_desyncError.Message}\n\n{debugText}";
+            DebugLabel.Modulate = _desyncError == null ? Colors.White : Colors.OrangeRed;
         }
     }
 }

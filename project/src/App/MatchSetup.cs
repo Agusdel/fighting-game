@@ -28,6 +28,9 @@ public sealed class MatchSetup
 
     public MatchSessionType SessionType { get; init; } = MatchSessionType.Local;
 
+    /// <summary>The simulated network when <see cref="SessionType"/> is <see cref="MatchSessionType.Loopback"/>.</summary>
+    public LoopbackSettings Loopback { get; init; } = new(LatencyMs: 50, JitterMs: 10, LossPercent: 2);
+
     public int PlayerCount => SlotDevices.Count;
 
     /// <summary>A new random seed for a match. Not used inside the simulation.</summary>

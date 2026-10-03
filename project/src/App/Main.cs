@@ -24,6 +24,11 @@ public partial class Main : Node
     /// <summary>How local matches run. <see cref="MatchSessionType.SyncTest"/> is a debug mode that checks rollback.</summary>
     [Export] public MatchSessionType SessionType { get; set; } = MatchSessionType.Local;
 
+    [ExportGroup("Loopback session (debug)")]
+    [Export(PropertyHint.Range, "0,500,1,suffix:ms")] public int LoopbackLatencyMs { get; set; } = 50;
+    [Export(PropertyHint.Range, "0,200,1,suffix:ms")] public int LoopbackJitterMs { get; set; } = 10;
+    [Export(PropertyHint.Range, "0,100,1,suffix:%")] public int LoopbackLossPercent { get; set; } = 2;
+
     private InputDevices? _inputDevices;
     private Node? _currentScreen;
 
@@ -65,6 +70,7 @@ public partial class Main : Node
             Seed = MatchSetup.NewSeed(),
             StageScene = StageScene ?? throw new System.InvalidOperationException("Main: StageScene is not set."),
             SessionType = SessionType,
+            Loopback = new LoopbackSettings(LoopbackLatencyMs, LoopbackJitterMs, LoopbackLossPercent),
         };
 
         var match = Instantiate<MatchRunner>(MatchScene, nameof(MatchScene));
