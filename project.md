@@ -14,8 +14,8 @@ Update this section at the end of each work session.
 
 - **Done:** M0–M5. The game starts at the main menu (`Main.tscn`): Play Local → lobby (players join with their keyboard set or controller) → match → Esc → lobby. Up to 4 fighters on `Stage01.tscn` with the data-driven state machine, two attacks with direction variants, hitstop, defeat, and round restart. Debug drawing: F1 stage boxes, F2 hurtboxes, hitboxes, and state progress bar. HUD health bars.
 - **Open in M3:** the piece scenes `StageSimpleStructure.tscn` and `StageSimplePlatform.tscn` wait for art. When art exists, turn off `ShowStageDebug` and `ShowCombatDebug` on the `Match` node.
-- **Now:** M6 (rollback, offline), SyncTest part (section 14, agreed). Step 1 (buffers) is done.
-- **Next:** M6 step 2 (`SyncTestSession`). After step 3: design `RollbackSession` with the user. Topics: input queue and prediction, `RollbackSession` behind `IMatchSession`, `LoopbackTransport` with simulated latency and loss, what the views do after a rollback.
+- **Now:** M6 (rollback, offline), SyncTest part (section 14, agreed). Steps 1 (buffers) and 2 (`SyncTestSession`) are done.
+- **Next:** M6 step 3 (SyncTest in the game). After step 3: design `RollbackSession` with the user. Topics: input queue and prediction, `RollbackSession` behind `IMatchSession`, `LoopbackTransport` with simulated latency and loss, what the views do after a rollback.
 - **Small items for later:** input buffer (a press on the last frame of a busy state is lost), input latch (a tap shorter than one tick is lost, 13.2), pause menu (Esc / controller Start; now it goes back to the lobby), review the `Data` names (section 12.3), tune movement and attack values (better when fighter states can be authored in the editor, M10).
 - **Before the first public build:** create `scripts/export.sh` (see section 10).
 
@@ -1043,5 +1043,10 @@ What SyncTest finds: state outside `WorldData` (static fields, caches in the sta
 Each step stops for review.
 
 1. **Buffers.** `SnapshotBuffer` and `InputHistory`, with tests. (Done. 12 new tests. `SnapshotBuffer.Get` and `InputHistory.Get` return a `ref readonly` value, so a read does not copy the state. The ring buffer logic is in each class (about 10 lines); a shared generic class was not worth it.)
-2. **SyncTest session.** `SyncTestSession`, `SyncTestException`, `WorldDataDiff`, with tests (also the broken-hook test).
+2. **SyncTest session.** `SyncTestSession`, `SyncTestException`, `WorldDataDiff`, with tests (also the broken-hook test). (Done. 18 new tests.)
+   - `WorldDataDiff` returns `FieldDifference` records (`Path`, `Expected`, `Actual`; text `Fighters[1].Position: (100, 20) -> (101, 20)`). A type with its own `ToString` (`Fixed`, `FixedVector2`) is one value; other structs are compared field by field, also private fields (`Rng._state`); inline arrays element by element (generic, so a new inline array needs no change).
+   - The long test uses a small test bot (walk to the nearest fighter, random buttons near it), 4 players, `MaxHealth` 10. Pure random inputs seldom made the fighters meet. The bot reaches round 10 in 3000 frames, for each check distance 1 to 8.
+   - `DefaultGameData.CreateFighterDefinition(FighterStats? stats = null)`: optional stats, for tests with low health.
+   - Checked with a deliberate bug (inputs one frame off in the second run): SyncTest reports frame 2 with `StateId`, `StateFrame`, and `PrevInput` of the fighter that differs.
+   - Later (optional): show state names in place of `StateId` numbers in the report.
 3. **Godot side.** `MatchSetup.SessionType`, the exports, the error report in the game. The user plays with SyncTest on.

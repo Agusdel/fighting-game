@@ -11,9 +11,10 @@ public static class DefaultGameData
     /// The default fighter: walk, jump (with jump squat), double jump, fall, land, drop through platforms,
     /// a light attack and a heavy attack (each with forward, up, and down variants), hitstun, and defeat.
     /// </summary>
-    public static FighterDefinitionData CreateFighterDefinition()
+    /// <param name="stats">The movement values and health. Null = <see cref="CreateFighterStats"/>.</param>
+    public static FighterDefinitionData CreateFighterDefinition(FighterStats? stats = null)
     {
-        var builder = new FighterDefinitionBuilder(CreateFighterStats()) { IdleState = "Idle", HitstunState = "Hitstun", DeadState = "Dead" };
+        var builder = new FighterDefinitionBuilder(stats ?? CreateFighterStats()) { IdleState = "Idle", HitstunState = "Hitstun", DeadState = "Dead" };
 
         // Boxes are relative to the feet, for a fighter that faces right. The fighter body is 48 x 96.
         static FixedAABB Box(int minX, int minY, int maxX, int maxY) =>
