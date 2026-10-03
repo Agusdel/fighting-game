@@ -42,7 +42,7 @@ internal sealed class LoopbackMatch
 
     /// <param name="slotOwners">The peer of each slot, for example { 0, 0, 1 } = peer 0 has slots 0 and 1, peer 1 has slot 2.</param>
     public LoopbackMatch(int[] slotOwners, int latencyMs = 0, int jitterMs = 0, int lossPercent = 0, int inputDelay = 2, int maxPrediction = 8,
-        InputSource? inputSource = null)
+        InputSource? inputSource = null, GameData? peer1Data = null)
     {
         _inputSource = inputSource;
         Data = CreateGameData();
@@ -61,7 +61,7 @@ internal sealed class LoopbackMatch
             MaxPrediction = maxPrediction,
         };
         Sessions = Enumerable.Range(0, peerCount)
-            .Select(peer => new RollbackSession(Data, _setup, Network.Transport(peer)))
+            .Select(peer => new RollbackSession(peer == 1 && peer1Data != null ? peer1Data : Data, _setup, Network.Transport(peer)))
             .ToArray();
         _botRngs = Enumerable.Range(0, peerCount).Select(peer => new FixedRng((ulong)(500 + peer))).ToArray();
         _realInputs = slotOwners.Select(_ => new Dictionary<int, InputFlags>()).ToArray();
@@ -74,8 +74,16 @@ internal sealed class LoopbackMatch
 
     public RollbackSession[] Sessions { get; }
 
-    /// <summary>Runs ticks: the network time advances by one tick, then each peer advances one frame (or waits).</summary>
-    public void Run(int ticks)
+    /// <summary>The number of times that a peer calls <see cref="RollbackSession.AdvanceFrame"/> in a tick: (tick, peer) -> count.</summary>
+    public delegate int AdvanceSchedule(int tick, int peer);
+
+    private int _tick;
+
+    /// <summary>
+    /// Runs ticks: the network time advances by one tick, then each peer advances one frame (or waits).
+    /// With a schedule, a peer can advance more often (a faster clock) or not at all (a late start).
+    /// </summary>
+    public void Run(int ticks, AdvanceSchedule? schedule = null)
     {
         for (int i = 0; i < ticks; i++)
         {
@@ -85,8 +93,13 @@ internal sealed class LoopbackMatch
 
             for (int peer = 0; peer < Sessions.Length; peer++)
             {
-                AdvancePeer(peer);
+                int count = schedule?.Invoke(_tick, peer) ?? 1;
+                for (int call = 0; call < count; call++)
+                {
+                    AdvancePeer(peer);
+                }
             }
+            _tick++;
         }
     }
 

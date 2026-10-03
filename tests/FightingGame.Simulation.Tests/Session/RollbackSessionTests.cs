@@ -32,6 +32,8 @@ public class RollbackSessionTests
             Assert.Equal(600, session.World.Frame);
             Assert.Equal(0, session.Stats.Rollbacks);
             Assert.Equal(0, session.Stats.PredictionWaits);
+            Assert.Equal(0, session.Stats.TimeSyncWaits);
+            Assert.Equal(600 / 30, session.Stats.HashesCompared);   // Frames 0, 30, ..., 570 (frame 600 is not confirmed yet).
         }
         match.CheckConfirmedFramesAgainstReference();
     }
@@ -56,6 +58,9 @@ public class RollbackSessionTests
             Assert.True(session.Stats.Rollbacks > 0, $"{session.LocalPeer}: no rollback occurred, so the test does not check the rollback path.");
             Assert.True(session.Stats.LongestRollback <= 8);
             Assert.True(session.World.Frame - session.ConfirmedInputFrame <= 9);
+            Assert.True(session.Stats.HashesCompared >= (slotOwners.Max()) * 2000 / 30 / 2,
+                $"{session.LocalPeer}: only {session.Stats.HashesCompared} hashes compared.");
+            Assert.True(Math.Abs(session.World.Frame - match.Sessions[0].World.Frame) <= 3);
         }
     }
 
@@ -99,6 +104,74 @@ public class RollbackSessionTests
             Assert.True(session.World.Frame > stoppedFrames[session.LocalPeer.Value] + 50);
         }
         match.CheckConfirmedFramesAgainstReference();
+    }
+
+    [Fact]
+    public void TimeSyncSlowsDownAFasterPeer()
+    {
+        // Peer 1 has a faster clock: it advances one extra frame every 20 ticks (5 % faster).
+        var match = new LoopbackMatch(new[] { 0, 1 }, latencyMs: 30);
+        match.Run(3000, (tick, peer) => peer == 1 && tick % 20 == 0 ? 2 : 1);
+
+        RollbackSession normal = match.Sessions[0];
+        RollbackSession faster = match.Sessions[1];
+        // 150 extra frames: the faster peer must wait about as often.
+        Assert.InRange(faster.Stats.TimeSyncWaits, 130, 170);
+        Assert.Equal(0, normal.Stats.TimeSyncWaits);
+        Assert.InRange(faster.World.Frame - normal.World.Frame, -2, 2);
+        // Without time sync, the faster peer would run ahead until the max prediction stops it on most ticks.
+        Assert.True(faster.Stats.PredictionWaits < 10, $"{faster.Stats.PredictionWaits} prediction waits.");
+        match.CheckConfirmedFramesAgainstReference();
+    }
+
+    [Fact]
+    public void TimeSyncCorrectsALateStart()
+    {
+        // Peer 1 starts 30 ticks after peer 0. Peer 0 runs to the max prediction, then time sync makes it wait.
+        var match = new LoopbackMatch(new[] { 0, 1 }, latencyMs: 30);
+        match.Run(600, (tick, peer) => peer == 1 && tick < 30 ? 0 : 1);
+
+        RollbackSession early = match.Sessions[0];
+        RollbackSession late = match.Sessions[1];
+        Assert.True(early.Stats.TimeSyncWaits > 0);
+        Assert.InRange(early.World.Frame - late.World.Frame, -2, 2);
+        match.CheckConfirmedFramesAgainstReference();
+    }
+
+    [Fact]
+    public void DifferentGameDataIsADesync()
+    {
+        // Peer 1 has a different restart delay. The states differ only after the first round ends.
+        GameData peer1Data = LoopbackMatch.CreateGameData();
+        peer1Data = new GameData { Stage = peer1Data.Stage, FighterDefinition = peer1Data.FighterDefinition, Rules = new MatchRulesData { RestartDelayFrames = 31 } };
+        var match = new LoopbackMatch(new[] { 0, 1 }, latencyMs: 40, jitterMs: 30, lossPercent: 20, peer1Data: peer1Data);
+
+        DesyncException desync = Assert.Throws<DesyncException>(() => match.Run(3000));
+
+        Assert.True(desync.Frame > 0, "The states are the same until the first round ends.");
+        Assert.Equal(0, desync.Frame % 30);
+        Assert.NotEqual(desync.LocalHash, desync.RemoteHash);
+        Assert.Contains($"at frame {desync.Frame}", desync.Message);
+        // The session that found the desync throws the same exception again on each call.
+        RollbackSession detector = match.Sessions[1 - desync.Peer.Value];
+        Assert.Same(desync, Assert.Throws<DesyncException>(() => detector.AdvanceFrame()));
+    }
+
+    [Fact]
+    public void ADifferentStartStateIsADesyncAtFrame0()
+    {
+        GameData peer1Data = LoopbackMatch.CreateGameData();
+        peer1Data = new GameData
+        {
+            Stage = peer1Data.Stage,
+            FighterDefinition = DefaultGameData.CreateFighterDefinition(DefaultGameData.CreateFighterStats() with { MaxHealth = 11 }),
+            Rules = peer1Data.Rules,
+        };
+        var match = new LoopbackMatch(new[] { 0, 1 }, peer1Data: peer1Data);
+
+        DesyncException desync = Assert.Throws<DesyncException>(() => match.Run(10));
+
+        Assert.Equal(0, desync.Frame);
     }
 
     [Fact]
@@ -153,5 +226,7 @@ public class RollbackSessionTests
         Assert.Throws<ArgumentException>(() => new RollbackSession(data, Setup(new[] { 0, 1 }, inputDelay: 11), network.Transport(0)));
         Assert.Throws<ArgumentException>(() => new RollbackSession(data, Setup(new[] { 0, 1 }, maxPrediction: 0), network.Transport(0)));
         Assert.Throws<ArgumentException>(() => new RollbackSession(data, Setup(new[] { 0, 1 }, maxPrediction: 17), network.Transport(0)));
+        Assert.Throws<ArgumentException>(() => new RollbackSession(data,
+            new RollbackSessionSetup { Seed = 1, SlotOwners = new[] { new PeerId(0), new PeerId(1) }, HashInterval = 0 }, network.Transport(0)));
     }
 }

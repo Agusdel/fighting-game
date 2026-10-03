@@ -21,6 +21,12 @@ public sealed class RollbackSessionStats
     /// <summary>The number of ticks that waited because the session reached the max prediction.</summary>
     public int PredictionWaits { get; internal set; }
 
+    /// <summary>The number of ticks that waited because this peer ran ahead of a remote peer (time sync).</summary>
+    public int TimeSyncWaits { get; internal set; }
+
+    /// <summary>The number of confirmed-frame hashes compared with a remote peer (desync detection).</summary>
+    public int HashesCompared { get; internal set; }
+
     /// <summary>The number of received messages that were not valid (ignored).</summary>
     public int InvalidMessages { get; internal set; }
 }
@@ -32,17 +38,21 @@ public sealed class RollbackSessionStats
 /// <remarks>
 /// Each <see cref="AdvanceFrame"/>:
 /// <list type="number">
-/// <item>Receive the messages: store the new confirmed inputs of the remote slots, and the acknowledgments.</item>
+/// <item>Receive the messages: store the new confirmed inputs of the remote slots, the acknowledgments, the time sync
+/// values, and the hash reports. Throw <see cref="DesyncException"/> if a hash report differs.</item>
 /// <item>If a new confirmed input differs from the input that a frame used: load the snapshot of the first wrong frame
 /// and run again to the current frame (rollback). The frames after the correction predict with the new last input.</item>
+/// <item>Record the hash reports of the new confirmed frames (<see cref="DesyncDetector"/>).</item>
 /// <item>Wait (return false) if the current frame is <see cref="RollbackSessionSetup.MaxPrediction"/> frames past the
-/// last frame with all inputs confirmed.</item>
+/// last frame with all inputs confirmed, or if this peer runs ahead of a remote peer (<see cref="TimeSync"/>).</item>
 /// <item>Store the local inputs for frame current + <see cref="RollbackSessionSetup.InputDelay"/>.</item>
-/// <item>Send the input message to each peer (also when the session waits, so the acknowledgments and the inputs keep flowing).</item>
+/// <item>Send the input message and the newest hash report to each peer (also when the session waits, so the
+/// acknowledgments and the inputs keep flowing).</item>
 /// <item>Run the tick with the confirmed or predicted inputs, and save the snapshot.</item>
 /// </list>
 /// Prediction: a missing input of a slot is the last confirmed input of that slot (players often hold the same buttons).
 /// Frames 0 to InputDelay - 1 have no local input, so they use empty inputs for all slots (confirmed at the start).
+/// After a <see cref="DesyncException"/>, each call throws it again: end the match.
 /// </remarks>
 public sealed class RollbackSession : IMatchSession
 {
@@ -73,6 +83,8 @@ public sealed class RollbackSession : IMatchSession
     /// <summary>The inputs (confirmed or predicted) that each frame used. A new confirmed input is compared with them.</summary>
     private readonly InputHistory _usedInputs;
     private readonly SnapshotBuffer _snapshots;
+    private readonly TimeSync _timeSync;
+    private readonly DesyncDetector _desyncDetector;
 
     private readonly InputMessage _receivedMessage = new();
     private readonly InputMessage _sentMessage = new();
@@ -113,6 +125,8 @@ public sealed class RollbackSession : IMatchSession
         }
         _remotePeers = remotePeers.ToArray();
         _remotePeerSlotMasks = remoteMasks.ToArray();
+        _timeSync = new TimeSync(_remotePeers.Length);
+        _desyncDetector = new DesyncDetector(setup.HashInterval, _remotePeers, Stats);
 
         // Frames 0 to InputDelay - 1 have empty inputs for all slots. All peers know this, so it is confirmed and acknowledged.
         int lastStartFrame = setup.InputDelay - 1;
@@ -143,6 +157,9 @@ public sealed class RollbackSession : IMatchSession
     public PeerId LocalPeer => _localPeer;
 
     public RollbackSessionStats Stats { get; } = new();
+
+    /// <summary>The frames that this peer runs ahead of the remote peer that is most behind (time sync, averaged).</summary>
+    public Fixed FramesAhead => _timeSync.FramesAhead;
 
     /// <summary>The last frame for which the inputs of all slots are confirmed. -1 = none.</summary>
     public int ConfirmedInputFrame
@@ -178,26 +195,52 @@ public sealed class RollbackSession : IMatchSession
         _nextLocalInput[slot] = input;
     }
 
+    /// <inheritdoc/>
+    /// <exception cref="DesyncException">A remote peer reported a different hash for a confirmed frame.</exception>
     public bool AdvanceFrame()
     {
         _transport.Poll();
+        ThrowIfDesync();
         RollBackIfNeeded();
+        _desyncDetector.OnConfirmed(ConfirmedFrame, _snapshots);
+        ThrowIfDesync();
 
         int frame = _world.Frame;
         if (frame - ConfirmedInputFrame > _setup.MaxPrediction)
         {
             Stats.PredictionWaits++;
-            _nextLocalInput = default;
-            SendInputs();
-            return false;
+            return Wait();
+        }
+        if (_timeSync.ShouldWait())
+        {
+            Stats.TimeSyncWaits++;
+            _timeSync.OnWait();
+            return Wait();
         }
 
         StoreLocalInputs(frame + _setup.InputDelay);
         _nextLocalInput = default;
-        SendInputs();
+        SendMessages();
 
         RunFrame(ref _world);
+        _timeSync.OnFrameRun();
         return true;
+    }
+
+    /// <summary>No frame runs: the local inputs of this tick are dropped, but the messages are still sent.</summary>
+    private bool Wait()
+    {
+        _nextLocalInput = default;
+        SendMessages();
+        return false;
+    }
+
+    private void ThrowIfDesync()
+    {
+        if (_desyncDetector.Desync is { } desync)
+        {
+            throw desync;
+        }
     }
 
     /// <summary>Runs one frame with the confirmed or predicted inputs, stores the used inputs, and saves the snapshot.</summary>
@@ -259,17 +302,19 @@ public sealed class RollbackSession : IMatchSession
 
     /// <summary>
     /// Sends each remote peer the local inputs that it has not acknowledged (the oldest first, at most
-    /// <see cref="InputMessage.MaxFrames"/>), and the acknowledgment of its inputs.
+    /// <see cref="InputMessage.MaxFrames"/>), the acknowledgment of its inputs, the time sync values,
+    /// and the newest hash report.
     /// </summary>
-    private void SendInputs()
+    private void SendMessages()
     {
         int lastLocalFrame = LastConfirmedFrameOf(_localSlotMask);
+        HashMessage? report = _desyncDetector.LatestReport;
         for (int peer = 0; peer < _remotePeers.Length; peer++)
         {
             int startFrame = _remoteAckFrames[peer] + 1;
             InputMessage message = _sentMessage;
             message.SenderFrame = _world.Frame;
-            message.FrameAdvantage = 0;
+            message.FrameAdvantage = _timeSync.LocalAdvantageOf(peer);
             message.AckFrame = LastConfirmedFrameOf(_remotePeerSlotMasks[peer]);
             message.StartFrame = startFrame;
             message.SlotMask = _localSlotMask;
@@ -288,6 +333,13 @@ public sealed class RollbackSession : IMatchSession
             var writer = new MessageWriter(_sendBuffer);
             message.Write(ref writer);
             _transport.Send(_remotePeers[peer], writer.Written, DeliveryMode.Unreliable);
+
+            if (report is { } hashReport)
+            {
+                var hashWriter = new MessageWriter(_sendBuffer);
+                hashReport.Write(ref hashWriter);
+                _transport.Send(_remotePeers[peer], hashWriter.Written, DeliveryMode.Unreliable);
+            }
         }
     }
 
@@ -310,7 +362,8 @@ public sealed class RollbackSession : IMatchSession
                     ReceiveInputs(peer, _receivedMessage);
                     break;
                 case MessageType.Hash:
-                    // Desync detection is not used yet.
+                    var hashReader = new MessageReader(data);
+                    _desyncDetector.OnRemoteReport(peer, HashMessage.Read(ref hashReader));
                     break;
                 default:
                     Stats.InvalidMessages++;
@@ -331,6 +384,8 @@ public sealed class RollbackSession : IMatchSession
             Stats.InvalidMessages++;
             return;
         }
+
+        _timeSync.OnInputMessage(peer, _world.Frame, message.SenderFrame, message.FrameAdvantage);
 
         // The acknowledgment only grows, and never past the local inputs that exist.
         int ack = Math.Min(message.AckFrame, LastConfirmedFrameOf(_localSlotMask));

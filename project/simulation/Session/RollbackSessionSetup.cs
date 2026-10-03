@@ -35,6 +35,9 @@ public sealed class RollbackSessionSetup
     /// </summary>
     public int MaxPrediction { get; init; } = 8;
 
+    /// <summary>The peers compare the hash of each confirmed frame that is a multiple of this value (desync detection).</summary>
+    public int HashInterval { get; init; } = 30;
+
     public int PlayerCount => SlotOwners.Count;
 
     /// <summary>Throws <see cref="ArgumentException"/> if a value is not valid for the local peer.</summary>
@@ -51,6 +54,11 @@ public sealed class RollbackSessionSetup
         if (MaxPrediction < 1 || MaxPrediction > MaxMaxPrediction)
         {
             throw new ArgumentException($"The max prediction must be 1 to {MaxMaxPrediction}, but it is {MaxPrediction}.");
+        }
+
+        if (HashInterval < 1)
+        {
+            throw new ArgumentException($"The hash interval must be at least 1, but it is {HashInterval}.");
         }
 
         bool hasLocalSlot = false;
