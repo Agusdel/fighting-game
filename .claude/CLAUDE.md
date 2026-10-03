@@ -55,6 +55,9 @@ The Godot MCP Pro server (`godot-mcp-pro`) connects Claude to the open Godot edi
 - `execute_editor_script` and `execute_game_script` take GDScript. You can use them for editor tasks. Do not save that code as project files.
 - `create_scene` does not open the new scene. Call `open_scene` before `add_node`, or the nodes go into the scene that is open now.
 - `get_scene_tree` shows the path of the open scene. Check it before you edit or save.
+- `scene create --root_type` accepts only built-in Godot classes, not script classes (for example `FighterRoot`). If it fails, the scene is not created and not opened, and the next `node add` calls go into the scene that is open now. Create the scene with a built-in root type (for example `Node2D`), open it, check `scene_path` with `scene tree`, then attach the script to the root (`script attach --node_path .`). `node add` accepts script classes.
+- `editor exec` refuses scripts that write files (for example `ResourceSaver.save`). Create and save scenes with the MCP scene and node commands.
+- Godot registers only one script class per `.cs` file: the class with the file name. Put each `[GlobalClass]` class in its own file.
 - `update_property` keeps string values as literal text. Do not put quotes around them.
 - `delete_scene` does not delete a scene that is open. Close its tab first (`EditorInterface.close_scene()` in `execute_editor_script`).
 - To install the server on a new machine, run `node build/setup.js install` in the server folder. `node_modules/` is not in git.
