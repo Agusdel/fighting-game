@@ -15,8 +15,8 @@ Update this section at the end of each work session.
 - **Done:** M0–M6. M6: `SyncTestSession`, `RollbackSession` (prediction, rollback, time sync, desync detection), `LoopbackNetwork`, and the debug session types `SyncTest` and `Loopback` (`SessionType` export on `Main` and on `Match`). Before M6: the game starts at the main menu (`Main.tscn`): Play Local → lobby (players join with their keyboard set or controller) → match → Esc → lobby. Up to 4 fighters on `Stage01.tscn` with the data-driven state machine, two attacks with direction variants, hitstop, defeat, and round restart. Debug drawing: F1 stage boxes, F2 hurtboxes, hitboxes, and state progress bar. HUD health bars.
 - **Open in M3:** the piece scenes `StageSimpleStructure.tscn` and `StageSimplePlatform.tscn` wait for art. When art exists, turn off `ShowStageDebug` and `ShowCombatDebug` on the `Match` node.
 - **To check (user):** the feel of a loopback match with latency (`SessionType` = `Loopback` on `Main`, F3 changes the shown player).
-- **Next:** M7 (online with ENet: host/join, online lobby, online match over localhost/LAN, disconnect). Design first, with the user. Open points from M6: time sync threshold (15.11 step 3), `RollbackSession.Dispose` (15.11 step 2).
-- **Small items for later:** input buffer (a press on the last frame of a busy state is lost), input latch (a tap shorter than one tick is lost, 13.2), pause menu (Esc / controller Start; now it goes back to the lobby), review the `Data` names (section 12.3), tune movement and attack values (better when fighter states can be authored in the editor, M10).
+- **Next:** M6.5 fighter authoring (section 16, agreed), before M7. Step 1 (base class and hook registry) is done. Next: step 2 (authoring nodes). M7 open points: time sync threshold (15.11 step 3), `RollbackSession.Dispose` or a message router (15.11 step 2).
+- **Small items for later:** input buffer (a press on the last frame of a busy state is lost), input latch (a tap shorter than one tick is lost, 13.2), pause menu (Esc / controller Start; now it goes back to the lobby), review the `Data` names (section 12.3), tune movement and attack values (better when fighter states can be authored in the editor, M6.5).
 - **Before the first public build:** create `scripts/export.sh` (see section 10).
 
 ---
@@ -306,10 +306,11 @@ Each milestone must be runnable and testable before the next one starts.
 | M4 | Combat and fighter state machine (**Done 2026-09-28**) | Data-driven fighter states, two attacks with direction variants, hitboxes, hurtboxes, damage, hitstun, knockback, hitstop (can be disabled), health bars, death and restart. Fair resolution (section 12) |
 | M5 | Local multiplayer (**Done 2026-09-30**) | Main menu (local), lobby with device assignment, 2–4 local players |
 | M6 | Rollback (offline) (**Done 2026-10-03**) | First step: SyncTest mode. Then `RollbackSession` with `LoopbackTransport`: two sessions in one process with simulated latency and loss. No desync |
+| M6.5 | Fighter authoring (section 16) | A complete fighter defined in the editor with no C# code: components, one timeline per state for visuals and boxes, converter to `FighterDefinitionData`, stick figure with generated poses |
 | M7 | Online (ENet) | Host / Join, online lobby, online match over localhost/LAN. Desync detection |
 | M8 | Steam | `SteamTransport` |
 | M9 | Determinism tools | Replay recording, replay viewer with slider, hash check, state diff. Only when needed (the unit tests already check determinism with hashes) |
-| M10 | Art, animation, and fighter authoring | Sprites and `AnimationPlayer` driven by `StateId` + `StateFrame`, VFX and sound timelines, fighter states authored in the editor with a frame viewer, stage piece scenes |
+| M10 | Art | Sprites (in the M6.5 state timelines), VFX and sound timelines, stage piece scenes |
 
 ---
 
@@ -463,6 +464,7 @@ public static class Simulator
 | 2026-09-30 | M5 design agreed (section 13): input from InputMap actions (controller template copied per controller), `IMatchSession` / `LocalSession`, app root `Main.tscn` with `MatchSetup`, Smash-style lobby with `LobbyPlayerSlot`, scene folders per part of the game |
 | 2026-10-03 | M6 SyncTest design agreed (section 14): check distance 8, continue from the re-simulated state, stop with a report and a field diff on a mismatch, `SnapshotBuffer` and `InputHistory` shared with `RollbackSession`, `MatchSetup.SessionType` |
 | 2026-10-03 | M6 rollback design agreed (section 15): input delay 2, max prediction 8, prediction = last confirmed input, redundant unreliable input messages, time sync by frame advantage (no clock), hash report every 30 confirmed frames, desync stops the match, `IMatchSession.AdvanceFrame` returns `bool`, in-memory `LoopbackTransport` with its own time, loopback mode in the game |
+| 2026-10-03 | Fighter authoring (M6.5, section 16) comes before online play (M7): authoring decides whether the project can become a good game, and M7 has no architecture risk left after M6. Design agreed: fighters defined in the editor with no C# code; one animation per state holds the visuals and the discrete box keys (the Godot animation editor is the frame viewer); boxes placed by hand, never derived from joints; state logic as nodes; stick figure with `Bone2D` rotations and generated poses that the user then edits |
 
 ---
 
@@ -819,13 +821,13 @@ The presentation reads the state and never gets commands from the simulation.
 - `FighterView` shows the state name and the `StateFrame` above the fighter (until there is art).
 - Debug drawing (F2): hurtboxes and active hitboxes of each fighter.
 - HUD: one health bar for each active player.
-- Animation later (M10): the view reads `(StateId, StateFrame)`, finds the animation by the state `Name`, and seeks the `AnimationPlayer` to that frame each render. It never lets the animation play on its own clock. After a rollback, the next render is correct.
+- Animation later (M6.5): the view reads `(StateId, StateFrame)`, finds the animation by the state `Name`, and seeks the `AnimationPlayer` to that frame each render. It never lets the animation play on its own clock. After a rollback, the next render is correct.
 - VFX and sound later (M10): a presentation timeline for each state name ("frame 4: play sound X"). The view fires the events between the last rendered frame and the new one. A filter keyed by (fighter, state start frame, event) prevents most duplicates after a rollback.
 
 ### 12.11 Authoring
 
 1. **M4: code-first.** Characters are built in C# with a builder (in the simulation library). The format changes often during the first combat work; code is fast to change and to test.
-2. **M10: editor authoring**, the same pattern as the stage: a character scene with one node for each state and hitbox child nodes with frame ranges, next to the sprite and `AnimationPlayer`. An editor tool with a frame slider shows the sprite and the active boxes on each frame. A converter produces the same `FighterDefinitionData`. Hooks are referenced by name, from a fixed read-only registry.
+2. **M6.5 (section 16): editor authoring** (the agreed design in section 16 replaces this first draft), the same pattern as the stage: a character scene with one node for each state and hitbox child nodes with frame ranges, next to the sprite and `AnimationPlayer`. An editor tool with a frame slider shows the sprite and the active boxes on each frame. A converter produces the same `FighterDefinitionData`. Hooks are referenced by name, from a fixed read-only registry.
 
 `FighterDefinitionData` gets `ComputeHash()` (like `StageData`), so peers can compare it in M7.
 
@@ -1186,3 +1188,101 @@ public interface INetworkTransport
    - The network time advances by one tick (1000/60 ms) on each `AdvanceFrame`. The game calls it at the tick rate, so this follows the real time (simpler than a separate real-time clock).
    - `MatchSessionType.Loopback`, `LoopbackSettings(LatencyMs, JitterMs, LossPercent)` in `MatchSetup` (default 50 ms, 10 ms, 2 %). Exports in the group "Loopback session (debug)" on `Main` and `MatchRunner`. With 1 player, a warning, and the match runs as a local match.
    - `MatchRunner` stops the match on `DesyncException` too (same display as SyncTest). F3 shows the next peer. The debug text shows the network values, rollbacks, waits, confirmed frame, frames ahead, and hashes compared.
+
+---
+
+## 16. Detailed Design: Fighter Authoring
+
+Status: **Agreed** (2026-10-03). This is milestone M6.5: it comes before M7 (see the Decision Log).
+
+### 16.1 Goals
+
+- Define a complete fighter in the Godot editor, with **no C# code**: stats, states, transitions, frame actions, hitboxes, hurtboxes, and animations. C# is needed only for new features (a new hook, condition, or frame action type), which then become available to all fighters in the editor.
+- One timeline for each state shows the visuals and the gameplay boxes together, frame by frame, so the user can check that a hitbox matches the pose.
+- Boxes are placed by hand on each frame. They are never derived from joints, because sprites (later) have no joints.
+- A deterministic converter turns the fighter scene into the existing `FighterDefinitionData`. The simulation does not change.
+
+### 16.2 Scene structure
+
+```
+Fighter01 (FighterRoot)            stats; Idle, Hitstun, and Dead state (dropdowns)
+├── CollisionBox (FighterCollisionBox)
+├── Hurtboxes (Node2D)
+│   ├── Body (FighterHurtbox)      body parts: always exist; a state animation can move, resize, or turn them off
+│   └── Head (FighterHurtbox)
+├── SharedTransitions (Node)
+│   ├── Ground (Node)              FighterTransition children, in priority order
+│   └── Air (Node)
+├── States (Node)
+│   ├── Idle (FighterState)        duration, next states, movement, flags, landing/leave-ground states, hooks
+│   │   └── ToWalk (FighterTransition)
+│   └── Attack1Forward (FighterState)
+│       ├── Hit (FighterHitbox)    damage, hitstun, knockback, hitstop; position, size, active keyed per frame
+│       └── Lunge (FighterFrameAction)
+├── StickFigure (StickFigure: Skeleton2D + Bone2D children; presentation only)
+└── AnimationPlayer                one animation for each state, with the state name
+```
+
+- The state name is the node name. References to states (next state, transition target, Idle/Hitstun/Dead) are names, with a dropdown of the existing states in the inspector.
+- Child order is the priority order: the order of the transitions, and of the hitboxes (the first hitbox that touches a target wins).
+- In the editor, the root shows only the hitboxes of the state whose animation is open in the animation editor.
+
+### 16.3 Components (`project/src/Authoring/`, `[Tool]`, `[GlobalClass]`)
+
+- `SnappedNode2D`: new base class with the snapping of `StageNode` (position rounded to whole pixels, rotation, scale, and skew reset, in the editor). `StageNode` inherits from it and keeps its stage-only code. It also works with the animation timeline: the node snaps when it is dragged (before a key is inserted), and discrete keys already have whole values.
+- `FighterRoot`: the stats (`float` exports for fractions, see 16.6; integers for health and frame counts), the Idle/Hitstun/Dead state names. It draws the origin (the feet) and checks the fighter (editor warnings, as `StageRoot`).
+- `FighterCollisionBox`: the stage collision box of the fighter (`Size`, centered on the feet on X, up from the feet on Y).
+- `FighterHurtbox`: `Size` (Vector2I), `Active` (bool). Position = top-left corner, relative to the feet, for a fighter that faces right.
+- `FighterHitbox`: `Size`, `Active`, `Damage`, `HitstunFrames`, `Knockback`, `HitstopFrames`. A second strength (for example a sweet spot) is a second hitbox node.
+- `FighterState`: `Duration` (0 = no end), `NextState`, `NextStateInAir`, `Movement`, `Flags`, `OnLanding`, `OnLeaveGround`, `OnEnter`/`OnUpdate`/`OnExit` (hook names).
+- `FighterTransition`: `Target`, `FromFrame`, `ToFrame`, `Conditions` (an array of `FighterCondition` resources: type, buttons, direction, custom condition name).
+- `FighterFrameAction`: `Frame`, `Type`, `Value`.
+- Colors: hurtbox green, hitbox red, collision box blue (the same as the game debug drawing).
+
+### 16.4 Timeline (one animation for each state)
+
+- Animation name = state name. Step 1/60 s; the animation editor shows frames (FPS mode). Keys must be on whole frames.
+- **Box tracks** (`position`, `Size`, `Active` of hitboxes and hurtboxes) must be **discrete** (no interpolation). The converter reads the keys directly (it does not sample between keys), so the result is exact.
+- A hitbox is inactive on the frames where its `Active` key is false, and in states that are not its own.
+- A hurtbox that a state animation does not key keeps its default value (the value in the scene).
+- **Visual tracks** (bone rotations, hip position, later a sprite frame) can interpolate. They are presentation only.
+- States with no duration (Idle, Walk, Fall) can have a looping animation for the visuals, but their box tracks must be constant (the simulation has no loop logic for boxes).
+- Onion skinning and frame stepping of the Godot animation editor show the frames before and after.
+
+### 16.5 Stick figure (presentation)
+
+- Bones (`Bone2D`) with rotations: hip → chest → head; chest → elbow → hand (×2); hip → knee → foot (×2). 11 joints, no shoulders: the arms attach at the chest point, a little below the head.
+- Rotations keep the limb length during interpolation (a hand moves on an arc). A hip position key makes crouch and jump squat.
+- `StickFigure` draws the lines and the head circle. The far arm and leg are drawn behind the body, in a darker color, so the facing is visible.
+- A generator script makes the first keys of all states from small pose tables, once. After that, the keys belong to the scene: the user (or Claude, on request) changes them in the editor.
+
+### 16.6 Converter (`FighterConverter`, Godot side)
+
+- Input: an instance of the fighter scene. Output: `FighterDefinitionData`, the same type as now. It collects all errors (as `StageConverter`): unknown state names, unknown hook or condition names, box tracks that are not discrete, keys that are not on whole frames, values that are not whole pixels, box tracks that change in a state with no duration.
+- Boxes: for each state and each frame, the box of each hitbox/hurtbox. Consecutive frames with the same box become one `HitboxData`/`HurtboxData` with a frame range.
+- Fractions: `float` → `double` → × 65536 → round to nearest even → `Fixed.FromRaw`. A multiply by a power of 2 is exact, so all machines get the same value. Peers compare the definition hash in M7.
+- Hooks and custom conditions: by name from a read-only registry in the simulation (`StateHookRegistry`). New C# features are added there and then appear in the inspector dropdowns.
+
+### 16.7 Game side
+
+- `MatchSetup.FighterScene` and a `FighterScene` export on `Main` and `MatchRunner` (as `StageScene`). All players use this fighter until a fighter select exists.
+- `FighterView` instantiates the fighter scene for its visuals, and each render seeks the animation of the state name to `StateFrame` (looping animations: `StateFrame` modulo the length). The animation never plays on its own clock. The F2 debug drawing still shows the boxes from the simulation data.
+- `DefaultGameData` (the code fighter) stays for the unit tests.
+
+### 16.8 Implementation steps
+
+Each step stops for review.
+
+1. **Base and registry.** `SnappedNode2D` (and `StageNode` on it), `StateHookRegistry` in the simulation. (Done. 4 new tests.)
+   - `SnappedNode2D` (`[Tool]`, `[GlobalClass]`) has the snapping code of the old `StageNode` and the virtual `OnLocalTransformChanged`. `StageNode` inherits from it and adds only the stage check request. The order of the steps is the same as before. Checked: `Stage01.tscn` still gives the stage hash `CAE0F8780BBCE087`, and a stage box in the editor snaps (10.4, 5.6) to (10, 6) and resets its rotation.
+   - `StateHookRegistry` (in `FightingGame.Simulation`) is an immutable instance: hooks and custom conditions by name (ordinal, case sensitive), sorted name lists for the dropdowns. `StateHookRegistry.Default` is the registry of the game, empty for now. Tests and the converter can use their own registry (for test hooks).
+2. **Authoring nodes.** All components of 16.3 with editor drawing, dropdowns, and configuration warnings.
+3. **Converter.** `FighterConverter`. `Fighter01.tscn` is built (with the MCP) from the code fighter, with constant box keys. Check: the converted definition has the same hash as `DefaultGameData`. The game uses `Fighter01.tscn`.
+4. **Stick figure.** `StickFigure`, the pose generator, the first animations for all states. `FighterView` shows the scene visuals at `StateFrame`.
+5. **Tuning.** The user checks and changes the animations and the hitboxes in the editor (Claude helps on request).
+6. **Optional.** Input buffer and cancel windows.
+
+### 16.9 Not in this milestone
+
+- Fighter select (more than one fighter in a match), projectiles, sound and VFX timelines, sprites.
+- A custom frame-data editor (the Godot animation editor is used).
