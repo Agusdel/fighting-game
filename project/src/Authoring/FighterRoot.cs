@@ -121,43 +121,8 @@ public partial class FighterRoot : SnappedNode2D
         }
     }
 
-    public override string[] _GetConfigurationWarnings()
-    {
-        var warnings = new List<string>();
-        List<string> states = GetStateNames();
-
-        if (_idleState.Length == 0)
-        {
-            warnings.Add("Select the IdleState (the state of the fighter when it spawns).");
-        }
-        CheckStateName(warnings, states, nameof(IdleState), _idleState);
-        CheckStateName(warnings, states, nameof(HitstunState), _hitstunState);
-        CheckStateName(warnings, states, nameof(DeadState), _deadState);
-
-        var seen = new HashSet<string>();
-        foreach (string state in states)
-        {
-            if (!seen.Add(state))
-            {
-                warnings.Add($"Two states are named '{state}'. State names must be unique.");
-            }
-        }
-
-        int collisionBoxes = FindAll<FighterCollisionBox>(this).Count;
-        if (collisionBoxes != 1)
-        {
-            warnings.Add($"A fighter needs exactly one FighterCollisionBox (it has {collisionBoxes}).");
-        }
-        if (FindAll<FighterHurtbox>(this).Count == 0)
-        {
-            warnings.Add("The fighter has no FighterHurtbox: it can never be hit.");
-        }
-        if (FindAnimationPlayer() == null)
-        {
-            warnings.Add("Add an AnimationPlayer with one animation for each state.");
-        }
-        return warnings.ToArray();
-    }
+    /// <summary>The conversion errors (the same check as when the game loads the fighter).</summary>
+    public override string[] _GetConfigurationWarnings() => FighterConverter.TryConvert(this, out _).ToArray();
 
     /// <summary>All nodes of a type below <paramref name="node"/>, depth-first in child order.</summary>
     internal static List<T> FindAll<T>(Node node) where T : Node
@@ -189,14 +154,6 @@ public partial class FighterRoot : SnappedNode2D
             }
         }
         return null;
-    }
-
-    private static void CheckStateName(List<string> warnings, List<string> states, string property, string value)
-    {
-        if (value.Length > 0 && !states.Contains(value))
-        {
-            warnings.Add($"{property}: there is no state named '{value}'.");
-        }
     }
 
     private void SetStateName(ref string field, string value)

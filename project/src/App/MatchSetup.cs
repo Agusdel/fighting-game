@@ -24,6 +24,9 @@ public sealed class MatchSetup
     /// <summary>A stage scene. Its root must be a <c>StageRoot</c> (stage scenes inherit StageBase.tscn).</summary>
     public required PackedScene StageScene { get; init; }
 
+    /// <summary>A fighter scene. Its root must be a <c>FighterRoot</c> (fighter scenes inherit FighterBase.tscn). All players use it.</summary>
+    public required PackedScene FighterScene { get; init; }
+
     public MatchRulesData Rules { get; init; } = new();
 
     public MatchSessionType SessionType { get; init; } = MatchSessionType.Local;

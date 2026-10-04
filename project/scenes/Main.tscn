@@ -5,6 +5,7 @@
 [ext_resource type="PackedScene" uid="uid://o0iv8jscfomq" path="res://scenes/match/Match.tscn" id="3_c01mt"]
 [ext_resource type="PackedScene" uid="uid://d27oh4yya8rnk" path="res://scenes/lobby/Lobby.tscn" id="3_vcsgt"]
 [ext_resource type="PackedScene" uid="uid://ciw86rqslsv8n" path="res://scenes/stages/Stage01.tscn" id="4_nxtc6"]
+[ext_resource type="PackedScene" uid="uid://i5fgfnc1y18p" path="res://scenes/fighters/Fighter01.tscn" id="6_c01mt"]
 
 [node name="Main" type="Node" unique_id=1624818840]
 script = ExtResource("1_rarhs")
@@ -12,3 +13,4 @@ MainMenuScene = ExtResource("2_vcsgt")
 LobbyScene = ExtResource("3_vcsgt")
 MatchScene = ExtResource("3_c01mt")
 StageScene = ExtResource("4_nxtc6")
+FighterScene = ExtResource("6_c01mt")

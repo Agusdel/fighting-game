@@ -38,6 +38,9 @@ public partial class MatchRunner : Node2D
 
     /// <summary>A stage scene. Its root must be a <see cref="StageRoot"/> (stage scenes inherit StageBase.tscn).</summary>
     [Export] public PackedScene? StageScene { get; set; }
+
+    /// <summary>A fighter scene. Its root must be a <see cref="FighterRoot"/> (fighter scenes inherit FighterBase.tscn).</summary>
+    [Export] public PackedScene? FighterScene { get; set; }
     [Export(PropertyHint.Range, "1,4")] public int PlayerCount { get; set; } = 1;
     [Export] public ulong Seed { get; set; } = 1;
     [Export] public MatchSessionType SessionType { get; set; } = MatchSessionType.Local;
@@ -93,7 +96,8 @@ public partial class MatchRunner : Node2D
         _setup ??= CreateDefaultSetup();
 
         StageData? stage = LoadStage(_setup.StageScene);
-        if (stage == null)
+        FighterDefinitionData? fighter = LoadFighter(_setup.FighterScene);
+        if (stage == null || fighter == null)
         {
             SetProcess(false);
             return;
@@ -102,7 +106,7 @@ public partial class MatchRunner : Node2D
         var data = new GameData
         {
             Stage = stage,
-            FighterDefinition = DefaultGameData.CreateFighterDefinition(),
+            FighterDefinition = fighter,
             Rules = _setup.Rules,
         };
         _session = CreateSession(data, _setup);
@@ -312,6 +316,10 @@ public partial class MatchRunner : Node2D
         {
             throw new InvalidOperationException("MatchRunner: StageScene is not set.");
         }
+        if (FighterScene == null)
+        {
+            throw new InvalidOperationException("MatchRunner: FighterScene is not set.");
+        }
 
         _ownInputDevices = new InputDevices();
         IReadOnlyList<InputDevice> devices = _ownInputDevices.All;
@@ -326,6 +334,7 @@ public partial class MatchRunner : Node2D
             SlotDevices = slotDevices,
             Seed = Seed,
             StageScene = StageScene,
+            FighterScene = FighterScene,
             SessionType = SessionType,
             Loopback = new LoopbackSettings(LoopbackLatencyMs, LoopbackJitterMs, LoopbackLossPercent),
         };
@@ -361,6 +370,35 @@ public partial class MatchRunner : Node2D
         }
     }
 
+
+    /// <summary>
+    /// Converts the fighter scene to fighter data. The instance is only read and then freed: the views make their own
+    /// instances for the visuals. Returns null and logs all errors if the fighter is not valid.
+    /// </summary>
+    private static FighterDefinitionData? LoadFighter(PackedScene fighterScene)
+    {
+        Node instance = fighterScene.Instantiate();
+        try
+        {
+            if (instance is not FighterRoot root)
+            {
+                GD.PushError($"MatchRunner: the root of '{fighterScene.ResourcePath}' is not a FighterRoot.");
+                return null;
+            }
+            FighterDefinitionData fighter = FighterConverter.Convert(root);
+            GD.Print($"Fighter '{fighterScene.ResourcePath}' loaded. Fighter hash: {fighter.ComputeHash():X16}");
+            return fighter;
+        }
+        catch (FighterConversionException exception)
+        {
+            GD.PushError(exception.Message);
+            return null;
+        }
+        finally
+        {
+            instance.Free();
+        }
+    }
 
     private void RefreshViews()
     {

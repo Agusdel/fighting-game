@@ -1,0 +1,29 @@
+[gd_scene format=3 uid="uid://dqko6xghvger6"]
+
+[ext_resource type="Script" uid="uid://cvuvtriwm8ham" path="res://src/Authoring/FighterRoot.cs" id="1_svghk"]
+[ext_resource type="Script" uid="uid://c5reysbmf6btr" path="res://src/Authoring/FighterCollisionBox.cs" id="2_o31cp"]
+[ext_resource type="Script" uid="uid://5eyvl8yhvw4r" path="res://src/Authoring/SnappedNode2D.cs" id="3_idxpi"]
+[ext_resource type="Script" uid="uid://busrc46ubdwk0" path="res://src/Authoring/FighterSharedTransitions.cs" id="4_t7wyx"]
+
+[node name="Fighter" type="Node2D" unique_id=2054866789]
+script = ExtResource("1_svghk")
+
+[node name="CollisionBox" type="Node2D" parent="." unique_id=477678800]
+script = ExtResource("2_o31cp")
+
+[node name="Hurtboxes" type="Node2D" parent="." unique_id=1837293352]
+script = ExtResource("3_idxpi")
+
+[node name="States" type="Node2D" parent="." unique_id=2123421550]
+script = ExtResource("3_idxpi")
+
+[node name="SharedTransitions" type="Node" parent="." unique_id=795458813]
+
+[node name="Ground" type="Node" parent="SharedTransitions" unique_id=260073704]
+script = ExtResource("4_t7wyx")
+
+[node name="Air" type="Node" parent="SharedTransitions" unique_id=112902989]
+script = ExtResource("4_t7wyx")
+Type = 1
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="." unique_id=247845908]

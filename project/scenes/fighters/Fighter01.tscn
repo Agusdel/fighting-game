@@ -1,0 +1,606 @@
+[gd_scene format=3 uid="uid://i5fgfnc1y18p"]
+
+[ext_resource type="PackedScene" uid="uid://dqko6xghvger6" path="res://scenes/fighters/FighterBase.tscn" id="1_un2fr"]
+[ext_resource type="Script" uid="uid://te7nu2jr1rm2" path="res://src/Authoring/FighterHurtbox.cs" id="2_0ixh2"]
+[ext_resource type="Script" uid="uid://s5dinlv7yshp" path="res://src/Authoring/FighterState.cs" id="3_3fs40"]
+[ext_resource type="Script" uid="uid://c1acwi1ujfssy" path="res://src/Authoring/FighterTransition.cs" id="4_0j0vy"]
+[ext_resource type="Script" uid="uid://ciq61u0on30hm" path="res://src/Authoring/FighterCondition.cs" id="5_x6p20"]
+[ext_resource type="Script" uid="uid://8g5nt1jyis1m" path="res://src/Authoring/FighterFrameAction.cs" id="6_rl7ky"]
+[ext_resource type="Script" uid="uid://n4khny4kes3h" path="res://src/Authoring/FighterHitbox.cs" id="7_1l1xq"]
+
+[sub_resource type="Resource" id="Resource_wt401"]
+script = ExtResource("5_x6p20")
+Type = 3
+
+[sub_resource type="Resource" id="Resource_w0kmd"]
+script = ExtResource("5_x6p20")
+Type = 3
+Direction = 5
+
+[sub_resource type="Resource" id="Resource_kpnwp"]
+script = ExtResource("5_x6p20")
+Type = 7
+
+[sub_resource type="Resource" id="Resource_mulkw"]
+script = ExtResource("5_x6p20")
+Type = 7
+
+[sub_resource type="Resource" id="Resource_whafx"]
+script = ExtResource("5_x6p20")
+Type = 9
+
+[sub_resource type="Resource" id="Resource_k6r25"]
+script = ExtResource("5_x6p20")
+Type = 4
+
+[sub_resource type="Resource" id="Resource_pfpv5"]
+script = ExtResource("5_x6p20")
+Type = 9
+
+[sub_resource type="Resource" id="Resource_4l4x7"]
+script = ExtResource("5_x6p20")
+Buttons = 16
+
+[sub_resource type="Resource" id="Resource_stc4i"]
+script = ExtResource("5_x6p20")
+Type = 3
+Direction = 1
+
+[sub_resource type="Resource" id="Resource_xynwm"]
+script = ExtResource("5_x6p20")
+Type = 6
+
+[sub_resource type="Resource" id="Resource_4jetn"]
+script = ExtResource("5_x6p20")
+Buttons = 16
+
+[sub_resource type="Resource" id="Resource_uglug"]
+script = ExtResource("5_x6p20")
+Buttons = 32
+
+[sub_resource type="Resource" id="Resource_wsvh7"]
+script = ExtResource("5_x6p20")
+Type = 3
+Direction = 0
+
+[sub_resource type="Resource" id="Resource_hj5oa"]
+script = ExtResource("5_x6p20")
+Buttons = 32
+
+[sub_resource type="Resource" id="Resource_4bobg"]
+script = ExtResource("5_x6p20")
+Type = 3
+Direction = 1
+
+[sub_resource type="Resource" id="Resource_oq0ik"]
+script = ExtResource("5_x6p20")
+Type = 6
+
+[sub_resource type="Resource" id="Resource_vyml2"]
+script = ExtResource("5_x6p20")
+Buttons = 32
+
+[sub_resource type="Resource" id="Resource_itfaq"]
+script = ExtResource("5_x6p20")
+Buttons = 64
+
+[sub_resource type="Resource" id="Resource_gywjt"]
+script = ExtResource("5_x6p20")
+Type = 3
+Direction = 0
+
+[sub_resource type="Resource" id="Resource_3vq2m"]
+script = ExtResource("5_x6p20")
+Buttons = 64
+
+[sub_resource type="Resource" id="Resource_xuqjj"]
+script = ExtResource("5_x6p20")
+Type = 3
+Direction = 1
+
+[sub_resource type="Resource" id="Resource_wn4qs"]
+script = ExtResource("5_x6p20")
+Type = 6
+
+[sub_resource type="Resource" id="Resource_fpkxn"]
+script = ExtResource("5_x6p20")
+Buttons = 64
+
+[sub_resource type="Resource" id="Resource_kwlvi"]
+script = ExtResource("5_x6p20")
+Buttons = 16
+
+[sub_resource type="Resource" id="Resource_plv1p"]
+script = ExtResource("5_x6p20")
+Type = 8
+
+[sub_resource type="Resource" id="Resource_nkpdm"]
+script = ExtResource("5_x6p20")
+Buttons = 32
+
+[sub_resource type="Resource" id="Resource_63356"]
+script = ExtResource("5_x6p20")
+Type = 3
+Direction = 0
+
+[sub_resource type="Resource" id="Resource_ons20"]
+script = ExtResource("5_x6p20")
+Buttons = 32
+
+[sub_resource type="Resource" id="Resource_bg35w"]
+script = ExtResource("5_x6p20")
+Type = 3
+Direction = 1
+
+[sub_resource type="Resource" id="Resource_x3m62"]
+script = ExtResource("5_x6p20")
+Buttons = 32
+
+[sub_resource type="Resource" id="Resource_8wqxc"]
+script = ExtResource("5_x6p20")
+Buttons = 64
+
+[sub_resource type="Resource" id="Resource_1edcn"]
+script = ExtResource("5_x6p20")
+Type = 3
+Direction = 0
+
+[sub_resource type="Resource" id="Resource_pqy1d"]
+script = ExtResource("5_x6p20")
+Buttons = 64
+
+[sub_resource type="Resource" id="Resource_6afhl"]
+script = ExtResource("5_x6p20")
+Type = 3
+Direction = 1
+
+[sub_resource type="Resource" id="Resource_ak35f"]
+script = ExtResource("5_x6p20")
+Buttons = 64
+
+[sub_resource type="Animation" id="Animation_nrnfx"]
+length = 0.3
+step = 0.016666668
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("States/Attack1Down/Hit:Active")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0.06666667, 0.11666667),
+"transitions": PackedFloat32Array(1, 1),
+"update": 1,
+"values": [true, false]
+}
+
+[sub_resource type="Animation" id="Animation_xw08a"]
+length = 0.3
+step = 0.016666668
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("States/Attack1Forward/Hit:Active")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0.06666667, 0.11666667),
+"transitions": PackedFloat32Array(1, 1),
+"update": 1,
+"values": [true, false]
+}
+
+[sub_resource type="Animation" id="Animation_8ko5w"]
+length = 0.3
+step = 0.016666668
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("States/Attack1Up/Hit:Active")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0.06666667, 0.11666667),
+"transitions": PackedFloat32Array(1, 1),
+"update": 1,
+"values": [true, false]
+}
+
+[sub_resource type="Animation" id="Animation_y4fjg"]
+step = 0.016666668
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("States/Attack2Down/Hit:Active")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0.6166667, 0.95),
+"transitions": PackedFloat32Array(1, 1),
+"update": 1,
+"values": [true, false]
+}
+
+[sub_resource type="Animation" id="Animation_ub0jk"]
+step = 0.016666668
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("States/Attack2Forward/Hit:Active")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0.6166667, 0.95),
+"transitions": PackedFloat32Array(1, 1),
+"update": 1,
+"values": [true, false]
+}
+
+[sub_resource type="Animation" id="Animation_5o4rm"]
+step = 0.016666668
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("States/Attack2Up/Hit:Active")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0.6166667, 0.95),
+"transitions": PackedFloat32Array(1, 1),
+"update": 1,
+"values": [true, false]
+}
+
+[sub_resource type="Animation" id="Animation_v8eb3"]
+length = 0.001
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("States/Attack1Forward/Hit:Active")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [false]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("States/Attack1Up/Hit:Active")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [false]
+}
+tracks/2/type = "value"
+tracks/2/imported = false
+tracks/2/enabled = true
+tracks/2/path = NodePath("States/Attack1Down/Hit:Active")
+tracks/2/interp = 1
+tracks/2/loop_wrap = true
+tracks/2/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [false]
+}
+tracks/3/type = "value"
+tracks/3/imported = false
+tracks/3/enabled = true
+tracks/3/path = NodePath("States/Attack2Forward/Hit:Active")
+tracks/3/interp = 1
+tracks/3/loop_wrap = true
+tracks/3/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [false]
+}
+tracks/4/type = "value"
+tracks/4/imported = false
+tracks/4/enabled = true
+tracks/4/path = NodePath("States/Attack2Up/Hit:Active")
+tracks/4/interp = 1
+tracks/4/loop_wrap = true
+tracks/4/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [false]
+}
+tracks/5/type = "value"
+tracks/5/imported = false
+tracks/5/enabled = true
+tracks/5/path = NodePath("States/Attack2Down/Hit:Active")
+tracks/5/interp = 1
+tracks/5/loop_wrap = true
+tracks/5/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [false]
+}
+
+[sub_resource type="AnimationLibrary" id="AnimationLibrary_3k64m"]
+_data = {
+&"Attack1Down": SubResource("Animation_nrnfx"),
+&"Attack1Forward": SubResource("Animation_xw08a"),
+&"Attack1Up": SubResource("Animation_8ko5w"),
+&"Attack2Down": SubResource("Animation_y4fjg"),
+&"Attack2Forward": SubResource("Animation_ub0jk"),
+&"Attack2Up": SubResource("Animation_5o4rm"),
+&"RESET": SubResource("Animation_v8eb3")
+}
+
+[node name="Fighter" unique_id=2054866789 instance=ExtResource("1_un2fr")]
+HitstunState = "Hitstun"
+DeadState = "Dead"
+
+[node name="Body" type="Node2D" parent="Hurtboxes" parent_id_path=PackedInt32Array(1837293352) index="0" unique_id=2125326371]
+position = Vector2(-24, -96)
+script = ExtResource("2_0ixh2")
+
+[node name="Idle" type="Node2D" parent="States" parent_id_path=PackedInt32Array(2123421550) index="0" unique_id=758233800]
+script = ExtResource("3_3fs40")
+Movement = 1
+Flags = 3
+OnLeaveGround = "Fall"
+
+[node name="ToWalk" type="Node" parent="States/Idle" index="0" unique_id=1758302647]
+script = ExtResource("4_0j0vy")
+Target = "Walk"
+Conditions = Array[ExtResource("5_x6p20")]([SubResource("Resource_wt401")])
+
+[node name="Walk" type="Node2D" parent="States" parent_id_path=PackedInt32Array(2123421550) index="1" unique_id=526588585]
+script = ExtResource("3_3fs40")
+Movement = 1
+Flags = 3
+OnLeaveGround = "Fall"
+
+[node name="ToIdle" type="Node" parent="States/Walk" index="0" unique_id=1486927835]
+script = ExtResource("4_0j0vy")
+Target = "Idle"
+Conditions = Array[ExtResource("5_x6p20")]([SubResource("Resource_w0kmd")])
+
+[node name="JumpSquat" type="Node2D" parent="States" parent_id_path=PackedInt32Array(2123421550) index="2" unique_id=511368331]
+script = ExtResource("3_3fs40")
+Duration = 3
+NextState = "Jump"
+OnLeaveGround = "Fall"
+
+[node name="Jump" type="Node2D" parent="States" parent_id_path=PackedInt32Array(2123421550) index="3" unique_id=1750236693]
+script = ExtResource("3_3fs40")
+Movement = 2
+Flags = 3
+OnLanding = "Land"
+
+[node name="Jump" type="Node" parent="States/Jump" index="0" unique_id=947828802]
+script = ExtResource("6_rl7ky")
+
+[node name="ToFall" type="Node" parent="States/Jump" index="1" unique_id=1317470894]
+script = ExtResource("4_0j0vy")
+Target = "Fall"
+Conditions = Array[ExtResource("5_x6p20")]([SubResource("Resource_kpnwp")])
+
+[node name="DoubleJump" type="Node2D" parent="States" parent_id_path=PackedInt32Array(2123421550) index="4" unique_id=110216952]
+script = ExtResource("3_3fs40")
+Movement = 2
+Flags = 3
+OnLanding = "Land"
+
+[node name="Jump" type="Node" parent="States/DoubleJump" index="0" unique_id=2013518518]
+script = ExtResource("6_rl7ky")
+
+[node name="ToFall" type="Node" parent="States/DoubleJump" index="1" unique_id=436570404]
+script = ExtResource("4_0j0vy")
+Target = "Fall"
+Conditions = Array[ExtResource("5_x6p20")]([SubResource("Resource_mulkw")])
+
+[node name="Fall" type="Node2D" parent="States" parent_id_path=PackedInt32Array(2123421550) index="5" unique_id=552340765]
+script = ExtResource("3_3fs40")
+Movement = 2
+Flags = 3
+OnLanding = "Land"
+
+[node name="Land" type="Node2D" parent="States" parent_id_path=PackedInt32Array(2123421550) index="6" unique_id=669622332]
+script = ExtResource("3_3fs40")
+Duration = 3
+NextState = "Idle"
+Movement = 4
+OnLeaveGround = "Fall"
+
+[node name="PlatformDrop" type="Node2D" parent="States" parent_id_path=PackedInt32Array(2123421550) index="7" unique_id=114736060]
+script = ExtResource("3_3fs40")
+OnLeaveGround = "Fall"
+
+[node name="DropThrough" type="Node" parent="States/PlatformDrop" index="0" unique_id=919454572]
+script = ExtResource("6_rl7ky")
+Type = 1
+
+[node name="Attack1Forward" type="Node2D" parent="States" parent_id_path=PackedInt32Array(2123421550) index="8" unique_id=1659743718]
+script = ExtResource("3_3fs40")
+Duration = 18
+NextState = "Idle"
+NextStateInAir = "Fall"
+Movement = 3
+
+[node name="Hit" type="Node2D" parent="States/Attack1Forward" index="0" unique_id=2076900100]
+position = Vector2(20, -70)
+script = ExtResource("7_1l1xq")
+Size = Vector2i(44, 30)
+
+[node name="Attack1Up" type="Node2D" parent="States" parent_id_path=PackedInt32Array(2123421550) index="9" unique_id=677188753]
+script = ExtResource("3_3fs40")
+Duration = 18
+NextState = "Idle"
+NextStateInAir = "Fall"
+Movement = 3
+
+[node name="Hit" type="Node2D" parent="States/Attack1Up" index="0" unique_id=370025929]
+position = Vector2(-24, -130)
+script = ExtResource("7_1l1xq")
+Size = Vector2i(48, 40)
+Knockback = Vector2(0, -6)
+
+[node name="Attack1Down" type="Node2D" parent="States" parent_id_path=PackedInt32Array(2123421550) index="10" unique_id=1333747756]
+script = ExtResource("3_3fs40")
+Duration = 18
+NextState = "Idle"
+NextStateInAir = "Fall"
+Movement = 3
+
+[node name="Hit" type="Node2D" parent="States/Attack1Down" index="0" unique_id=1501134262]
+position = Vector2(-20, -10)
+script = ExtResource("7_1l1xq")
+Size = Vector2i(40, 40)
+Knockback = Vector2(0, 5)
+
+[node name="Attack2Forward" type="Node2D" parent="States" parent_id_path=PackedInt32Array(2123421550) index="11" unique_id=124637522]
+script = ExtResource("3_3fs40")
+Duration = 60
+NextState = "Idle"
+NextStateInAir = "Fall"
+Movement = 4
+
+[node name="Hit" type="Node2D" parent="States/Attack2Forward" index="0" unique_id=2035370891]
+position = Vector2(20, -80)
+script = ExtResource("7_1l1xq")
+Size = Vector2i(64, 50)
+Damage = 15
+HitstunFrames = 24
+Knockback = Vector2(9, -5)
+HitstopFrames = 6
+
+[node name="Attack2Up" type="Node2D" parent="States" parent_id_path=PackedInt32Array(2123421550) index="12" unique_id=1948369034]
+script = ExtResource("3_3fs40")
+Duration = 60
+NextState = "Idle"
+NextStateInAir = "Fall"
+Movement = 4
+
+[node name="Hit" type="Node2D" parent="States/Attack2Up" index="0" unique_id=1929089568]
+position = Vector2(-30, -150)
+script = ExtResource("7_1l1xq")
+Size = Vector2i(60, 60)
+Damage = 15
+HitstunFrames = 24
+Knockback = Vector2(0, -11)
+HitstopFrames = 6
+
+[node name="Attack2Down" type="Node2D" parent="States" parent_id_path=PackedInt32Array(2123421550) index="13" unique_id=1520176789]
+script = ExtResource("3_3fs40")
+Duration = 60
+NextState = "Idle"
+NextStateInAir = "Fall"
+Movement = 4
+
+[node name="Hit" type="Node2D" parent="States/Attack2Down" index="0" unique_id=1440235632]
+position = Vector2(-30, -10)
+script = ExtResource("7_1l1xq")
+Size = Vector2i(60, 50)
+Damage = 15
+HitstunFrames = 24
+Knockback = Vector2(0, 8)
+HitstopFrames = 6
+
+[node name="Hitstun" type="Node2D" parent="States" parent_id_path=PackedInt32Array(2123421550) index="14" unique_id=99410349]
+script = ExtResource("3_3fs40")
+Movement = 5
+
+[node name="ToIdle" type="Node" parent="States/Hitstun" index="0" unique_id=698998493]
+script = ExtResource("4_0j0vy")
+Target = "Idle"
+Conditions = Array[ExtResource("5_x6p20")]([SubResource("Resource_whafx"), SubResource("Resource_k6r25")])
+
+[node name="ToFall" type="Node" parent="States/Hitstun" index="1" unique_id=645589680]
+script = ExtResource("4_0j0vy")
+Target = "Fall"
+Conditions = Array[ExtResource("5_x6p20")]([SubResource("Resource_pfpv5")])
+
+[node name="Dead" type="Node2D" parent="States" parent_id_path=PackedInt32Array(2123421550) index="15" unique_id=1901053968]
+script = ExtResource("3_3fs40")
+Movement = 5
+Flags = 8
+
+[node name="PlatformDrop" type="Node" parent="SharedTransitions/Ground" parent_id_path=PackedInt32Array(260073704) index="0" unique_id=263506841]
+script = ExtResource("4_0j0vy")
+Target = "PlatformDrop"
+Conditions = Array[ExtResource("5_x6p20")]([SubResource("Resource_4l4x7"), SubResource("Resource_stc4i"), SubResource("Resource_xynwm")])
+
+[node name="JumpSquat" type="Node" parent="SharedTransitions/Ground" parent_id_path=PackedInt32Array(260073704) index="1" unique_id=305677206]
+script = ExtResource("4_0j0vy")
+Target = "JumpSquat"
+Conditions = Array[ExtResource("5_x6p20")]([SubResource("Resource_4jetn")])
+
+[node name="Attack1Up" type="Node" parent="SharedTransitions/Ground" parent_id_path=PackedInt32Array(260073704) index="2" unique_id=824642175]
+script = ExtResource("4_0j0vy")
+Target = "Attack1Up"
+Conditions = Array[ExtResource("5_x6p20")]([SubResource("Resource_uglug"), SubResource("Resource_wsvh7")])
+
+[node name="Attack1Down" type="Node" parent="SharedTransitions/Ground" parent_id_path=PackedInt32Array(260073704) index="3" unique_id=1210208316]
+script = ExtResource("4_0j0vy")
+Target = "Attack1Down"
+Conditions = Array[ExtResource("5_x6p20")]([SubResource("Resource_hj5oa"), SubResource("Resource_4bobg"), SubResource("Resource_oq0ik")])
+
+[node name="Attack1Forward" type="Node" parent="SharedTransitions/Ground" parent_id_path=PackedInt32Array(260073704) index="4" unique_id=1303778268]
+script = ExtResource("4_0j0vy")
+Target = "Attack1Forward"
+Conditions = Array[ExtResource("5_x6p20")]([SubResource("Resource_vyml2")])
+
+[node name="Attack2Up" type="Node" parent="SharedTransitions/Ground" parent_id_path=PackedInt32Array(260073704) index="5" unique_id=473146055]
+script = ExtResource("4_0j0vy")
+Target = "Attack2Up"
+Conditions = Array[ExtResource("5_x6p20")]([SubResource("Resource_itfaq"), SubResource("Resource_gywjt")])
+
+[node name="Attack2Down" type="Node" parent="SharedTransitions/Ground" parent_id_path=PackedInt32Array(260073704) index="6" unique_id=1248094958]
+script = ExtResource("4_0j0vy")
+Target = "Attack2Down"
+Conditions = Array[ExtResource("5_x6p20")]([SubResource("Resource_3vq2m"), SubResource("Resource_xuqjj"), SubResource("Resource_wn4qs")])
+
+[node name="Attack2Forward" type="Node" parent="SharedTransitions/Ground" parent_id_path=PackedInt32Array(260073704) index="7" unique_id=437351654]
+script = ExtResource("4_0j0vy")
+Target = "Attack2Forward"
+Conditions = Array[ExtResource("5_x6p20")]([SubResource("Resource_fpkxn")])
+
+[node name="DoubleJump" type="Node" parent="SharedTransitions/Air" parent_id_path=PackedInt32Array(112902989) index="0" unique_id=1024855043]
+script = ExtResource("4_0j0vy")
+Target = "DoubleJump"
+Conditions = Array[ExtResource("5_x6p20")]([SubResource("Resource_kwlvi"), SubResource("Resource_plv1p")])
+
+[node name="Attack1Up" type="Node" parent="SharedTransitions/Air" parent_id_path=PackedInt32Array(112902989) index="1" unique_id=1527137593]
+script = ExtResource("4_0j0vy")
+Target = "Attack1Up"
+Conditions = Array[ExtResource("5_x6p20")]([SubResource("Resource_nkpdm"), SubResource("Resource_63356")])
+
+[node name="Attack1Down" type="Node" parent="SharedTransitions/Air" parent_id_path=PackedInt32Array(112902989) index="2" unique_id=416289966]
+script = ExtResource("4_0j0vy")
+Target = "Attack1Down"
+Conditions = Array[ExtResource("5_x6p20")]([SubResource("Resource_ons20"), SubResource("Resource_bg35w")])
+
+[node name="Attack1Forward" type="Node" parent="SharedTransitions/Air" parent_id_path=PackedInt32Array(112902989) index="3" unique_id=981497834]
+script = ExtResource("4_0j0vy")
+Target = "Attack1Forward"
+Conditions = Array[ExtResource("5_x6p20")]([SubResource("Resource_x3m62")])
+
+[node name="Attack2Up" type="Node" parent="SharedTransitions/Air" parent_id_path=PackedInt32Array(112902989) index="4" unique_id=1631357959]
+script = ExtResource("4_0j0vy")
+Target = "Attack2Up"
+Conditions = Array[ExtResource("5_x6p20")]([SubResource("Resource_8wqxc"), SubResource("Resource_1edcn")])
+
+[node name="Attack2Down" type="Node" parent="SharedTransitions/Air" parent_id_path=PackedInt32Array(112902989) index="5" unique_id=1032246624]
+script = ExtResource("4_0j0vy")
+Target = "Attack2Down"
+Conditions = Array[ExtResource("5_x6p20")]([SubResource("Resource_pqy1d"), SubResource("Resource_6afhl")])
+
+[node name="Attack2Forward" type="Node" parent="SharedTransitions/Air" parent_id_path=PackedInt32Array(112902989) index="6" unique_id=805680831]
+script = ExtResource("4_0j0vy")
+Target = "Attack2Forward"
+Conditions = Array[ExtResource("5_x6p20")]([SubResource("Resource_ak35f")])
+
+[node name="AnimationPlayer" parent="." index="4" unique_id=247845908]
+libraries/ = SubResource("AnimationLibrary_3k64m")
