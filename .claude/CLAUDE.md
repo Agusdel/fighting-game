@@ -78,7 +78,12 @@ The Godot MCP Pro server (`godot-mcp-pro`) connects Claude to the open Godot edi
 - In shell scripts, do not use the variable name `UID` (it is read-only in bash and holds the user id).
 - UI built with the MCP: a `Control` child that must fill its parent needs `layout_mode = 1` and the `full_rect` anchor preset (`node scripts/godot-rpc.mjs set_anchor_preset '{"node_path":"X","preset":"full_rect"}'`).
 - Each CLI call takes several seconds. Do not use CLI timing to check frame-exact behavior; use unit tests for that.
+- `scripts/mcp-play-match.sh` (or `scene play` of a scene) makes that scene the current scene of the editor. Open the scene you want to change again, and check `scene_path`, before you change or save anything.
+- To review an animation pose in the running game: pause the tree (`get_tree().paused = true`), set the fighter's `AnimationPlayer` to `PROCESS_MODE_ALWAYS`, `play(name)` and `seek(frame / 60.0, true)`, call `queue_redraw()` on the `StickFigure` (its `_Process` does not run while paused), then take the screenshot. Zoom with a temporary `Camera2D` added in `runtime exec`.
 - To screenshot a short moment in the running game (for example an attack's active frames), slow the game with `Engine.time_scale = 0.02` in `runtime exec`. `MatchRunner` uses the frame delta, so the simulation slows down too.
+- To start the game, use the editor (`scripts/mcp-play-match.sh` or `scene play`). Do not use `scripts/run-match.sh` or a shell `godot` command. The editor embeds the game in its Game tab, so the game does not open a window on top of the user's work.
+- The user's desktop is COSMIC (Wayland). COSMIC opens new windows on the screen with the cursor, and ignores `--screen` and `--position`. Game embedding works only with the editor setting "Prefer Wayland" (`run/platforms/linuxbsd/prefer_wayland`). With X11, COSMIC does not let the editor embed the game window.
+- The embedded game window has the size of the Game tab. The user set the tab to 1152x648. Screenshot sizes change if the editor layout changes.
 
 Tool usage instructions from the MCP package:
 
