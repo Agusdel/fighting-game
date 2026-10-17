@@ -35,7 +35,7 @@ public partial class StickFigure : Node2D
     [Export(PropertyHint.Range, "1,20,0.5,suffix:px")] public float HeadRadius { get; set; } = 7;
 
     /// <summary>The brightness of the far limbs, as a fraction of <see cref="Color"/>.</summary>
-    [Export(PropertyHint.Range, "0,1,0.05")] public float FarBrightness { get; set; } = 0.55f;
+    [Export(PropertyHint.Range, "0,1,0.05")] public float FarBrightness { get; set; } = 0.8f;
 
     public override void _Process(double delta) => QueueRedraw();
 
