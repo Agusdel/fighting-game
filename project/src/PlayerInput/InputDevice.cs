@@ -21,8 +21,17 @@ public sealed class InputDevice
     private readonly StringName _attack1;
     private readonly StringName _attack2;
 
+    /// <summary>True for a device that never presses a button (see <see cref="CreateIdle"/>).</summary>
+    private readonly bool _idle;
+
     public InputDevice(string id, string displayName)
+        : this(id, displayName, idle: false)
     {
+    }
+
+    private InputDevice(string id, string displayName, bool idle)
+    {
+        _idle = idle;
         Id = id;
         DisplayName = displayName;
         _left = Action(id, "left");
@@ -43,10 +52,20 @@ public sealed class InputDevice
     /// <summary>The name shown to players, for example "Keyboard 1" or "Controller 2".</summary>
     public string DisplayName { get; }
 
+    /// <summary>
+    /// A device that never presses a button, for test matches with more players than real devices (the extra fighters
+    /// stand still). It reads no actions.
+    /// </summary>
+    public static InputDevice CreateIdle(int number) => new($"idle{number}", $"Idle {number}", idle: true);
+
     /// <summary>The buttons of this device that are held now.</summary>
     public InputFlags Read()
     {
         InputFlags flags = InputFlags.None;
+        if (_idle)
+        {
+            return flags;
+        }
         if (Input.IsActionPressed(_left)) flags |= InputFlags.Left;
         if (Input.IsActionPressed(_right)) flags |= InputFlags.Right;
         if (Input.IsActionPressed(_up)) flags |= InputFlags.Up;
@@ -59,10 +78,10 @@ public sealed class InputDevice
 
     /// <summary>True if the event presses the join button of this device (jump or light attack).</summary>
     public bool IsJoinPress(InputEvent inputEvent) =>
-        inputEvent.IsActionPressed(_jump) || inputEvent.IsActionPressed(_attack1);
+        !_idle && (inputEvent.IsActionPressed(_jump) || inputEvent.IsActionPressed(_attack1));
 
     /// <summary>True if the event presses the leave button of this device (heavy attack).</summary>
-    public bool IsLeavePress(InputEvent inputEvent) => inputEvent.IsActionPressed(_attack2);
+    public bool IsLeavePress(InputEvent inputEvent) => !_idle && inputEvent.IsActionPressed(_attack2);
 
     public override string ToString() => DisplayName;
 

@@ -10,7 +10,7 @@
 script = ExtResource("1_1w71u")
 StageScene = ExtResource("2_tte12")
 FighterScene = ExtResource("3_4xhm6")
-PlayerCount = 3
+PlayerCount = 2
 ShowStageDebug = true
 ShowCombatDebug = true
 StageView = NodePath("StageView")

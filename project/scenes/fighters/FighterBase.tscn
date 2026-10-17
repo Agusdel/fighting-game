@@ -9,6 +9,16 @@
 [node name="Fighter" type="Node2D" unique_id=2054866789]
 script = ExtResource("1_svghk")
 
+[node name="CollisionBox" type="Node2D" parent="." unique_id=477678800]
+script = ExtResource("2_o31cp")
+Size = Vector2i(40, 80)
+
+[node name="Hurtboxes" type="Node2D" parent="." unique_id=1837293352]
+script = ExtResource("3_idxpi")
+
+[node name="States" type="Node2D" parent="." unique_id=2123421550]
+script = ExtResource("3_idxpi")
+
 [node name="StickFigure" type="Node2D" parent="." unique_id=450909260]
 script = ExtResource("2_idxpi")
 
@@ -69,7 +79,7 @@ bone_angle = 0.0
 
 [node name="ThighFar" type="Bone2D" parent="StickFigure/Skeleton2D/Hip" unique_id=40776318]
 rotation = 1.7453293
-scale = Vector2(0.99999994, 0.99999994)
+scale = Vector2(0.9999999, 0.9999999)
 rest = Transform2D(-0.1736482, 0.9848077, -0.9848077, -0.1736482, 0, 0)
 auto_calculate_length_and_angle = false
 length = 20.0
@@ -78,7 +88,7 @@ bone_angle = 0.0
 [node name="ShinFar" type="Bone2D" parent="StickFigure/Skeleton2D/Hip/ThighFar" unique_id=622185648]
 position = Vector2(20, 0)
 rotation = -0.2617994
-scale = Vector2(0.99999994, 0.99999994)
+scale = Vector2(0.9999999, 0.9999999)
 rest = Transform2D(0.9659258, -0.25881904, 0.25881904, 0.9659258, 20, 0)
 auto_calculate_length_and_angle = false
 length = 20.0
@@ -86,7 +96,7 @@ bone_angle = 0.0
 
 [node name="ThighNear" type="Bone2D" parent="StickFigure/Skeleton2D/Hip" unique_id=471274364]
 rotation = 1.3962634
-scale = Vector2(0.99999994, 0.99999994)
+scale = Vector2(0.9999999, 0.9999999)
 rest = Transform2D(0.17364822, 0.9848077, -0.9848077, 0.17364822, 0, 0)
 auto_calculate_length_and_angle = false
 length = 20.0
@@ -95,21 +105,11 @@ bone_angle = 0.0
 [node name="ShinNear" type="Bone2D" parent="StickFigure/Skeleton2D/Hip/ThighNear" unique_id=45686701]
 position = Vector2(20, 0)
 rotation = 0.2617994
-scale = Vector2(0.99999994, 0.99999994)
+scale = Vector2(0.9999999, 0.9999999)
 rest = Transform2D(0.9659258, 0.25881904, -0.25881904, 0.9659258, 20, 0)
 auto_calculate_length_and_angle = false
 length = 20.0
 bone_angle = 0.0
-
-[node name="CollisionBox" type="Node2D" parent="." unique_id=477678800]
-script = ExtResource("2_o31cp")
-Size = Vector2i(40, 80)
-
-[node name="Hurtboxes" type="Node2D" parent="." unique_id=1837293352]
-script = ExtResource("3_idxpi")
-
-[node name="States" type="Node2D" parent="." unique_id=2123421550]
-script = ExtResource("3_idxpi")
 
 [node name="SharedTransitions" type="Node" parent="." unique_id=795458813]
 

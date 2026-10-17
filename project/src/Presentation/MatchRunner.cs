@@ -311,8 +311,10 @@ public partial class MatchRunner : Node2D
         value.ToFloat().ToString("0.00", CultureInfo.InvariantCulture).PadLeft(8);
 
     /// <summary>
-    /// The setup when the scene runs alone: the exports (stage, player count, seed), and for each slot the next
-    /// device of keyboard 1, keyboard 2, then the connected controllers. Slots without a device are not created.
+    /// The setup when the scene runs alone: the exports (stage, player count, seed, session), and for each slot the
+    /// next device of keyboard 1, keyboard 2, then the connected controllers. Slots with no real device left get an
+    /// idle device (the fighter stands still), so a test match can have more players than devices.
+    /// Command-line arguments (<see cref="MatchLaunchArguments"/>) replace the exports.
     /// </summary>
     private MatchSetup CreateDefaultSetup()
     {
@@ -325,22 +327,32 @@ public partial class MatchRunner : Node2D
             throw new InvalidOperationException("MatchRunner: FighterScene is not set.");
         }
 
+        MatchLaunchArguments arguments = MatchLaunchArguments.FromCommandLine();
+        foreach (string problem in arguments.Problems)
+        {
+            GD.PushWarning($"MatchRunner: {problem}");
+        }
+        int playerCount = arguments.Players ?? PlayerCount;
+
         _ownInputDevices = new InputDevices();
         IReadOnlyList<InputDevice> devices = _ownInputDevices.All;
         var slotDevices = new List<InputDevice>();
-        for (int i = 0; i < PlayerCount && i < devices.Count; i++)
+        for (int i = 0; i < playerCount; i++)
         {
-            slotDevices.Add(devices[i]);
+            slotDevices.Add(i < devices.Count ? devices[i] : InputDevice.CreateIdle(i + 1 - devices.Count));
         }
 
         return new MatchSetup
         {
             SlotDevices = slotDevices,
-            Seed = Seed,
+            Seed = arguments.Seed ?? Seed,
             StageScene = StageScene,
             FighterScene = FighterScene,
-            SessionType = SessionType,
-            Loopback = new LoopbackSettings(LoopbackLatencyMs, LoopbackJitterMs, LoopbackLossPercent),
+            SessionType = arguments.SessionType ?? SessionType,
+            Loopback = new LoopbackSettings(
+                arguments.LatencyMs ?? LoopbackLatencyMs,
+                arguments.JitterMs ?? LoopbackJitterMs,
+                arguments.LossPercent ?? LoopbackLossPercent),
         };
     }
 
