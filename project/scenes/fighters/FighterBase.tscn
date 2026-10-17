@@ -1,6 +1,7 @@
 [gd_scene format=3 uid="uid://dqko6xghvger6"]
 
 [ext_resource type="Script" uid="uid://cvuvtriwm8ham" path="res://src/Authoring/FighterRoot.cs" id="1_svghk"]
+[ext_resource type="Script" uid="uid://ty7nnoy4hmok" path="res://src/Presentation/StickFigure.cs" id="2_idxpi"]
 [ext_resource type="Script" uid="uid://c5reysbmf6btr" path="res://src/Authoring/FighterCollisionBox.cs" id="2_o31cp"]
 [ext_resource type="Script" uid="uid://5eyvl8yhvw4r" path="res://src/Authoring/SnappedNode2D.cs" id="3_idxpi"]
 [ext_resource type="Script" uid="uid://busrc46ubdwk0" path="res://src/Authoring/FighterSharedTransitions.cs" id="4_t7wyx"]
@@ -8,8 +9,101 @@
 [node name="Fighter" type="Node2D" unique_id=2054866789]
 script = ExtResource("1_svghk")
 
+[node name="StickFigure" type="Node2D" parent="." unique_id=450909260]
+script = ExtResource("2_idxpi")
+
+[node name="Skeleton2D" type="Skeleton2D" parent="StickFigure" unique_id=1318802624]
+
+[node name="Hip" type="Bone2D" parent="StickFigure/Skeleton2D" unique_id=1318481573]
+position = Vector2(0, -40)
+rest = Transform2D(1, 0, 0, 1, 0, -40)
+auto_calculate_length_and_angle = false
+length = 0.0
+bone_angle = 0.0
+
+[node name="Spine" type="Bone2D" parent="StickFigure/Skeleton2D/Hip" unique_id=2085304692]
+rotation = -1.5707964
+rest = Transform2D(-4.371139e-08, -1, 1, -4.371139e-08, 0, 0)
+auto_calculate_length_and_angle = false
+length = 25.0
+bone_angle = 0.0
+
+[node name="Neck" type="Bone2D" parent="StickFigure/Skeleton2D/Hip/Spine" unique_id=800063039]
+position = Vector2(25, 0)
+rest = Transform2D(1, 0, 0, 1, 25, 0)
+auto_calculate_length_and_angle = false
+length = 8.0
+bone_angle = 0.0
+
+[node name="UpperArmFar" type="Bone2D" parent="StickFigure/Skeleton2D/Hip/Spine" unique_id=393737142]
+position = Vector2(25, 0)
+rotation = -2.9670596
+rest = Transform2D(-0.9848077, -0.17364822, 0.17364822, -0.9848077, 25, 0)
+auto_calculate_length_and_angle = false
+length = 17.0
+bone_angle = 0.0
+
+[node name="ForearmFar" type="Bone2D" parent="StickFigure/Skeleton2D/Hip/Spine/UpperArmFar" unique_id=2001125278]
+position = Vector2(17, 0)
+rotation = -0.5235988
+rest = Transform2D(0.8660254, -0.5, 0.5, 0.8660254, 17, 0)
+auto_calculate_length_and_angle = false
+length = 16.0
+bone_angle = 0.0
+
+[node name="UpperArmNear" type="Bone2D" parent="StickFigure/Skeleton2D/Hip/Spine" unique_id=453062181]
+position = Vector2(25, 0)
+rotation = 2.9670596
+rest = Transform2D(-0.9848077, 0.1736483, -0.1736483, -0.9848077, 25, 0)
+auto_calculate_length_and_angle = false
+length = 17.0
+bone_angle = 0.0
+
+[node name="ForearmNear" type="Bone2D" parent="StickFigure/Skeleton2D/Hip/Spine/UpperArmNear" unique_id=337326735]
+position = Vector2(17, 0)
+rotation = -0.61086524
+rest = Transform2D(0.81915206, -0.57357645, 0.57357645, 0.81915206, 17, 0)
+auto_calculate_length_and_angle = false
+length = 16.0
+bone_angle = 0.0
+
+[node name="ThighFar" type="Bone2D" parent="StickFigure/Skeleton2D/Hip" unique_id=40776318]
+rotation = 1.7453293
+scale = Vector2(0.99999994, 0.99999994)
+rest = Transform2D(-0.1736482, 0.9848077, -0.9848077, -0.1736482, 0, 0)
+auto_calculate_length_and_angle = false
+length = 20.0
+bone_angle = 0.0
+
+[node name="ShinFar" type="Bone2D" parent="StickFigure/Skeleton2D/Hip/ThighFar" unique_id=622185648]
+position = Vector2(20, 0)
+rotation = -0.2617994
+scale = Vector2(0.99999994, 0.99999994)
+rest = Transform2D(0.9659258, -0.25881904, 0.25881904, 0.9659258, 20, 0)
+auto_calculate_length_and_angle = false
+length = 20.0
+bone_angle = 0.0
+
+[node name="ThighNear" type="Bone2D" parent="StickFigure/Skeleton2D/Hip" unique_id=471274364]
+rotation = 1.3962634
+scale = Vector2(0.99999994, 0.99999994)
+rest = Transform2D(0.17364822, 0.9848077, -0.9848077, 0.17364822, 0, 0)
+auto_calculate_length_and_angle = false
+length = 20.0
+bone_angle = 0.0
+
+[node name="ShinNear" type="Bone2D" parent="StickFigure/Skeleton2D/Hip/ThighNear" unique_id=45686701]
+position = Vector2(20, 0)
+rotation = 0.2617994
+scale = Vector2(0.99999994, 0.99999994)
+rest = Transform2D(0.9659258, 0.25881904, -0.25881904, 0.9659258, 20, 0)
+auto_calculate_length_and_angle = false
+length = 20.0
+bone_angle = 0.0
+
 [node name="CollisionBox" type="Node2D" parent="." unique_id=477678800]
 script = ExtResource("2_o31cp")
+Size = Vector2i(40, 80)
 
 [node name="Hurtboxes" type="Node2D" parent="." unique_id=1837293352]
 script = ExtResource("3_idxpi")

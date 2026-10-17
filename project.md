@@ -15,7 +15,7 @@ Update this section at the end of each work session.
 - **Done:** M0–M6. M6: `SyncTestSession`, `RollbackSession` (prediction, rollback, time sync, desync detection), `LoopbackNetwork`, and the debug session types `SyncTest` and `Loopback` (`SessionType` export on `Main` and on `Match`). Before M6: the game starts at the main menu (`Main.tscn`): Play Local → lobby (players join with their keyboard set or controller) → match → Esc → lobby. Up to 4 fighters on `Stage01.tscn` with the data-driven state machine, two attacks with direction variants, hitstop, defeat, and round restart. Debug drawing: F1 stage boxes, F2 hurtboxes, hitboxes, and state progress bar. HUD health bars.
 - **Open in M3:** the piece scenes `StageSimpleStructure.tscn` and `StageSimplePlatform.tscn` wait for art. When art exists, turn off `ShowStageDebug` and `ShowCombatDebug` on the `Match` node.
 - **To check (user):** the feel of a loopback match with latency (`SessionType` = `Loopback` on `Main`, F3 changes the shown player).
-- **Next:** M6.5 fighter authoring (section 16, agreed), before M7. Steps 1 (base class, hook registry), 2 (authoring nodes), and 3 (converter, `Fighter01.tscn`) are done; the game uses `Fighter01.tscn`. Next: step 4 (stick figure). M7 open points: time sync threshold (15.11 step 3), `RollbackSession.Dispose` or a message router (15.11 step 2).
+- **Next:** M6.5 fighter authoring (section 16, agreed), before M7. Steps 1 (base class, hook registry), 2 (authoring nodes), and 3 (converter, `Fighter01.tscn`) are done; the game uses `Fighter01.tscn`. Step 4a (stick figure and playback) is done. Next: 4b (Idle and Walk animations). M7 open points: time sync threshold (15.11 step 3), `RollbackSession.Dispose` or a message router (15.11 step 2).
 - **Small items for later:** input buffer (a press on the last frame of a busy state is lost), input latch (a tap shorter than one tick is lost, 13.2), pause menu (Esc / controller Start; now it goes back to the lobby), review the `Data` names (section 12.3), tune movement and attack values (better when fighter states can be authored in the editor, M6.5).
 - **Before the first public build:** create `scripts/export.sh` (see section 10).
 
@@ -466,6 +466,7 @@ public static class Simulator
 | 2026-10-03 | M6 rollback design agreed (section 15): input delay 2, max prediction 8, prediction = last confirmed input, redundant unreliable input messages, time sync by frame advantage (no clock), hash report every 30 confirmed frames, desync stops the match, `IMatchSession.AdvanceFrame` returns `bool`, in-memory `LoopbackTransport` with its own time, loopback mode in the game |
 | 2026-10-03 | Fighter authoring (M6.5, section 16) comes before online play (M7): authoring decides whether the project can become a good game, and M7 has no architecture risk left after M6. Design agreed: fighters defined in the editor with no C# code; one animation per state holds the visuals and the discrete box keys (the Godot animation editor is the frame viewer); boxes placed by hand, never derived from joints; state logic as nodes; stick figure with `Bone2D` rotations and generated poses that the user then edits |
 | 2026-10-03 | Fractions in authored fighter values: the shortest decimal text of the float, rounded toward zero (the typed value, the same as `Fixed.FromRatio`). Replaces "round the float to nearest" (16.6) |
+| 2026-10-17 | Fighter size 80 px tall (collision box and body hurtbox 40 × 80, was 48 × 96), for more room on the stage. Animation style: quick and responsive (reference: Nidhogg). Animations are made in order: Idle and Walk, then movement and hit reactions, then attacks |
 
 ---
 
@@ -1253,6 +1254,8 @@ Fighter01 (FighterRoot)            stats; Idle, Hitstun, and Dead state (dropdow
 ### 16.5 Stick figure (presentation)
 
 - Bones (`Bone2D`) with rotations: hip → chest → head; chest → elbow → hand (×2); hip → knee → foot (×2). 11 joints, no shoulders: the arms attach at the chest point, a little below the head.
+- Size (changed in step 4): the fighter is 80 px tall (collision box and body hurtbox 40 × 80, was 48 × 96), so the stage has more room for jumps and platforms. Bones: thigh 20, shin 20 (hip at −40), spine 25, neck 8 (head center at −73, radius 7, top at −80), upper arm 17, forearm 16. Bone names: `Hip` (length 0, the root), `Spine`, `Neck`, `UpperArmNear`/`Far`, `ForearmNear`/`Far`, `ThighNear`/`Far`, `ShinNear`/`Far` (Near = the side close to the camera; the figure is mirrored when the fighter faces left).
+- Animation style: quick and responsive movements (reference: Nidhogg). Bone keys use linear interpolation.
 - Rotations keep the limb length during interpolation (a hand moves on an arc). A hip position key makes crouch and jump squat.
 - `StickFigure` draws the lines and the head circle. The far arm and leg are drawn behind the body, in a darker color, so the facing is visible.
 - A generator script makes the first keys of all states from small pose tables, once. After that, the keys belong to the scene: the user (or Claude, on request) changes them in the editor.
@@ -1295,7 +1298,12 @@ Each step stops for review.
    - Rules in the converter: `NextStateInAir` empty = `NextState` (as the builder). A state that keys no hurtbox uses the default hurtboxes; a state that keys hurtboxes gets all hurtboxes for each frame (an animation that turns off all hurtboxes is an error: use `Intangible`). The animation length must equal the state duration. Tracks of nodes that are not `SnappedNode2D` (bones, sprites) are not read; tracks on other authoring nodes (root, state, groups, collision box) are errors.
    - Checked: a different fraction rule (round to nearest) changes the hash; error messages for an unknown target, a duration without `NextState`, a hurtbox inside a state, an odd collision box width, a non-finite stat, a continuous box track, a key between frames, a hitbox keyed in another state's animation (in-memory copies, the scene files did not change). A headless match of 600 frames with the scene fighter runs with no errors.
    - The fraction rule cannot be unit tested (it is in the Godot assembly); the hash check covers 0.6, 4.5, 0.5, and 0.25.
-4. **Stick figure.** `StickFigure`, the pose generator, the first animations for all states. `FighterView` shows the scene visuals at `StateFrame`.
+4. **Stick figure.** `StickFigure`, the pose generator, the first animations for all states. `FighterView` shows the scene visuals at `StateFrame`. Split into sub-steps (each stops for review): 4a figure and playback; 4b Idle and Walk only (check the look and the transitions between them); 4c jumps, fall, land, platform drop, hit reactions; 4d attacks (new states for attacks can come up here).
+   - 4a done. `StickFigure` (`src/Presentation/`, `[Tool]`, `[GlobalClass]`, `Node2D`): draws a line for each `Bone2D` below it (bone angle 0, explicit length; tip = (length, 0) in bone space), round joints, a filled head at the tip of `Neck`. Draw order: bones ending in "Far" (darker, `FarBrightness` 0.55), other bones, bones ending in "Near", head. Exports: `Color`, `LineWidth` (4), `HeadRadius` (7), `FarBrightness`. Redrawn each frame.
+   - `FighterBase.tscn`: `StickFigure` > `Skeleton2D` > bones (first child of the root, so the authoring boxes draw on top in the editor). Collision box 40 × 80 in the base. `Fighter01.tscn`: body hurtbox (−20, −80) 40 × 80. The fighter hash changes (the fighter no longer equals the code fighter; the user had already changed states).
+   - `FighterView.SetVisual(PackedScene)` (called by `MatchRunner` for each player slot): an instance of the fighter scene, behind the view's debug drawing (`ShowBehindParent`), `AnimationPlayer` in manual process mode. Each refresh: mirror for the facing, alpha 0.3 when intangible, seek the animation of the state name to `StateFrame` / 60 s (looping: modulo the length; not looping: clamped to the end; no animation: `RESET`). Each animation should key all bones (a bone not keyed can keep the value of the last animation). The rectangle body is drawn only without visuals; the feet marker only with the debug boxes.
+   - Checked in the game: two stick figures in the player colors, P2 mirrored when it faces left, no errors.
+   - Known noise: Godot saves `scale = 0.99999994` on the four leg bones of the base (recalculated from the rotation on save; stable, no visible effect).
 5. **Tuning.** The user checks and changes the animations and the hitboxes in the editor (Claude helps on request).
 6. **Optional.** Input buffer and cancel windows.
 
@@ -1303,3 +1311,13 @@ Each step stops for review.
 
 - Fighter select (more than one fighter in a match), projectiles, sound and VFX timelines, sprites.
 - A custom frame-data editor (the Godot animation editor is used).
+
+### 16.10 Later: reuse of states between fighters
+
+Most transitions (for example Idle → Walk on a horizontal input) are the same for all fighters. To keep fighter scenes small, share the common parts. The converter walks the node tree and matches states by name, so all approaches below work with the current converter:
+
+1. **Common states in the base scene (scene inheritance), first choice.** Move the common states (Idle, Walk, JumpSquat, Jump, DoubleJump, Fall, Land, PlatformDrop, Hitstun, Dead), their transitions, and the shared transitions into `FighterBase.tscn`. Each fighter overrides values on inherited nodes (for example a duration), adds hitboxes to inherited states, has its own animation library, and adds its own states (attacks). An archetype scene between the base and the fighter is possible (for example `HeavyFighterBase.tscn`). Godot cannot delete an inherited node in a child scene: if a fighter must not have a base state, add an `Enabled` flag that the converter respects. Be careful when you rename or move nodes in the base: overrides in child scenes can break.
+2. **State packs (composition).** Small scenes with groups of states (for example `MovementStates.tscn`, `HitReactionStates.tscn`), instanced under `States`. "Editable Children" lets one fighter change a value in its instance of a pack. Use this when fighter archetypes differ in groups of states.
+3. **Logic templates.** A shared state machine resource (state names and all transitions), and per fighter only the content (durations, hitboxes, animations, frame actions, stats), merged by the converter. Cleanest separation, but it needs new code. Use it only if the scenes are still hard to work with.
+
+Data-driven conditions remove many differences without transition changes (for example a fighter with no double jump: `MaxJumps` = 1; the air jump transition already checks `HasJumpsLeft`).

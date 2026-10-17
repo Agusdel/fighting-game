@@ -123,6 +123,10 @@ public partial class MatchRunner : Node2D
         {
             var view = new FighterView { Name = $"Fighter{i}", BodyColor = PlayerColors.Of(i) };
             fightersRoot.AddChild(view);
+            if (i < _setup.PlayerCount)
+            {
+                view.SetVisual(_setup.FighterScene);
+            }
             _fighterViews[i] = view;
         }
 

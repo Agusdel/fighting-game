@@ -342,8 +342,9 @@ HitstunState = "Hitstun"
 DeadState = "Dead"
 
 [node name="Body" type="Node2D" parent="Hurtboxes" parent_id_path=PackedInt32Array(1837293352) index="0" unique_id=2125326371]
-position = Vector2(-24, -96)
+position = Vector2(-20, -80)
 script = ExtResource("2_0ixh2")
+Size = Vector2i(40, 80)
 
 [node name="Idle" type="Node2D" parent="States" parent_id_path=PackedInt32Array(2123421550) index="0" unique_id=758233800]
 script = ExtResource("3_3fs40")
@@ -602,5 +603,5 @@ script = ExtResource("4_0j0vy")
 Target = "Attack2Forward"
 Conditions = Array[ExtResource("5_x6p20")]([SubResource("Resource_ak35f")])
 
-[node name="AnimationPlayer" parent="." index="4" unique_id=247845908]
+[node name="AnimationPlayer" parent="." index="5" unique_id=247845908]
 libraries/ = SubResource("AnimationLibrary_3k64m")

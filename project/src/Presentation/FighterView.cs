@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using FightingGame.Core;
 using FightingGame.Simulation;
@@ -6,8 +7,9 @@ using Godot;
 namespace FightingGame.Presentation;
 
 /// <summary>
-/// Draws one fighter (placeholder art): its body box, facing, state name and state frame, and optionally its active
-/// hurtboxes and hitboxes. The node origin is the fighter feet.
+/// Draws one fighter: the visuals of the fighter scene (see <see cref="SetVisual"/>) at the pose of the current state
+/// frame, or a placeholder body box. On top: the state name and frame, the state progress bar, and optionally the
+/// active hurtboxes and hitboxes (debug). The node origin is the fighter feet.
 /// The view has no state of its own: <see cref="Refresh"/> reads everything from the fighter data,
 /// so it can show any frame (also after a rollback or a jump in a replay).
 /// </summary>
@@ -33,6 +35,48 @@ public partial class FighterView : Node2D
     private bool _intangible;
     private bool _showCombatBoxes;
     private string _label = "";
+
+    /// <summary>An instance of the fighter scene, used only for its visuals (stick figure or sprites) and its animations.</summary>
+    private Node2D? _visual;
+    private AnimationPlayer? _animationPlayer;
+    private string _playedAnimation = "";
+
+    /// <summary>
+    /// Shows the visuals of a fighter scene: an instance of the scene follows this view, and its state animations
+    /// show the pose of the current state frame. Without visuals, the view draws a rectangle body.
+    /// </summary>
+    /// <remarks>
+    /// The <c>AnimationPlayer</c> never runs on its own clock (manual process mode): each refresh seeks the animation of
+    /// the state (same name) to the state frame. So a rollback, a replay jump, or hitstop shows the correct pose at once.
+    /// Each animation should key all bones: a bone that the new animation does not key can keep the value of the last one.
+    /// </remarks>
+    public void SetVisual(PackedScene fighterScene)
+    {
+        _visual?.QueueFree();
+        _visual = fighterScene.Instantiate<Node2D>();
+        // Behind this node: the debug drawing of the view (boxes, label) stays on top of the figure.
+        _visual.ShowBehindParent = true;
+        AddChild(_visual);
+
+        _animationPlayer = null;
+        _playedAnimation = "";
+        foreach (Node child in _visual.GetChildren())
+        {
+            if (child is AnimationPlayer player)
+            {
+                _animationPlayer = player;
+                player.CallbackModeProcess = AnimationMixer.AnimationCallbackModeProcess.Manual;
+                break;
+            }
+        }
+        foreach (Node node in _visual.FindChildren("*", nameof(Node2D), recursive: true, owned: false))
+        {
+            if (node is StickFigure figure)
+            {
+                figure.Color = BodyColor;
+            }
+        }
+    }
 
     public void Refresh(in FighterData fighter, FighterDefinitionData definition, bool showCombatBoxes)
     {
@@ -74,7 +118,44 @@ public partial class FighterView : Node2D
         }
 
         UpdateProgress(fighter, definition, state, showCombatBoxes);
+        if (_visual != null)
+        {
+            _visual.Scale = new Vector2(_facing < 0 ? -1 : 1, 1);
+            _visual.Modulate = _intangible ? new Color(1, 1, 1, 0.3f) : Colors.White;
+            ShowPose(state.Name, fighter.StateFrame);
+        }
         QueueRedraw();
+    }
+
+    /// <summary>
+    /// Seeks the animation of the state to the state frame. A looping animation repeats (frame modulo its length); a
+    /// non-looping one stays on its last frame. A state with no animation shows the "RESET" pose.
+    /// </summary>
+    private void ShowPose(string stateName, int stateFrame)
+    {
+        if (_animationPlayer == null)
+        {
+            return;
+        }
+        string name = _animationPlayer.HasAnimation(stateName) ? stateName
+            : _animationPlayer.HasAnimation("RESET") ? "RESET"
+            : "";
+        if (name.Length == 0)
+        {
+            return;
+        }
+
+        Animation animation = _animationPlayer.GetAnimation(name);
+        double time = (double)stateFrame / GameConstants.TickRate;
+        time = animation.LoopMode != Animation.LoopModeEnum.None && animation.Length > 0
+            ? time % animation.Length
+            : Math.Min(time, animation.Length);
+        if (_playedAnimation != name)
+        {
+            _animationPlayer.Play(name);
+            _playedAnimation = name;
+        }
+        _animationPlayer.Seek(time, update: true);
     }
 
     /// <summary>
@@ -111,31 +192,22 @@ public partial class FighterView : Node2D
     public override void _Draw()
     {
         Color color = _intangible ? BodyColor with { A = 0.3f } : BodyColor;
-        DrawRect(_body, color with { A = color.A * 0.35f });
-        if (!_showCombatBoxes)
+        if (_visual == null)
         {
-            // With the combat boxes on, the hurtbox outline (usually the same box) replaces the body outline.
-            DrawRect(_body, color, filled: false, width: 2);
+            DrawPlaceholderBody(color);
         }
 
-        // Facing: a triangle at head height that points in the facing direction.
-        float eyeY = _body.Position.Y + _body.Size.Y * 0.25f;
-        float front = _facing * _body.Size.X / 2;
-        DrawColoredPolygon(new[]
+        // Feet marker (debug): filled when grounded.
+        if (_showCombatBoxes || _visual == null)
         {
-            new Vector2(front, eyeY - 8),
-            new Vector2(front + _facing * 12, eyeY),
-            new Vector2(front, eyeY + 8),
-        }, color);
-
-        // Feet marker: filled when grounded.
-        if (_grounded)
-        {
-            DrawCircle(Vector2.Zero, 4, color);
-        }
-        else
-        {
-            DrawArc(Vector2.Zero, 4, 0, Mathf.Tau, 12, color, 1);
+            if (_grounded)
+            {
+                DrawCircle(Vector2.Zero, 4, color);
+            }
+            else
+            {
+                DrawArc(Vector2.Zero, 4, 0, Mathf.Tau, 12, color, 1);
+            }
         }
 
         foreach (Rect2 hurtbox in _hurtboxes)
@@ -169,6 +241,27 @@ public partial class FighterView : Node2D
         const float LabelWidth = 200;
         DrawString(ThemeDB.FallbackFont, new Vector2(-LabelWidth / 2, labelBottom), _label,
             HorizontalAlignment.Center, LabelWidth, 12, color);
+    }
+
+    /// <summary>A rectangle body with a facing triangle, for a fighter scene without visuals.</summary>
+    private void DrawPlaceholderBody(Color color)
+    {
+        DrawRect(_body, color with { A = color.A * 0.35f });
+        if (!_showCombatBoxes)
+        {
+            // With the combat boxes on, the hurtbox outline (usually the same box) replaces the body outline.
+            DrawRect(_body, color, filled: false, width: 2);
+        }
+
+        // Facing: a triangle at head height that points in the facing direction.
+        float eyeY = _body.Position.Y + _body.Size.Y * 0.25f;
+        float front = _facing * _body.Size.X / 2;
+        DrawColoredPolygon(new[]
+        {
+            new Vector2(front, eyeY - 8),
+            new Vector2(front + _facing * 12, eyeY),
+            new Vector2(front, eyeY + 8),
+        }, color);
     }
 
     /// <summary>A box relative to the feet (defined for a fighter that faces right), mirrored for the facing.</summary>
