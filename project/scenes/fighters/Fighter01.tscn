@@ -999,7 +999,7 @@ tracks/11/keys = {
 }
 
 [sub_resource type="Animation" id="Animation_1l1xq"]
-length = 0.03333333333333333
+length = 0.08333333333333333
 step = 0.016666668
 tracks/0/type = "value"
 tracks/0/imported = false
@@ -1008,10 +1008,10 @@ tracks/0/path = NodePath("StickFigure/Skeleton2D/Hip:position")
 tracks/0/interp = 1
 tracks/0/loop_wrap = true
 tracks/0/keys = {
-"times": PackedFloat32Array(0, 0.016666668),
-"transitions": PackedFloat32Array(1, 1),
+"times": PackedFloat32Array(0, 0.033333335, 0.06666667),
+"transitions": PackedFloat32Array(1, 1, 1),
 "update": 0,
-"values": [Vector2(-3, -34), Vector2(-3, -37)]
+"values": [Vector2(-3, -34), Vector2(-3, -37), Vector2(-3, -40)]
 }
 tracks/1/type = "value"
 tracks/1/imported = false
@@ -1020,10 +1020,10 @@ tracks/1/path = NodePath("StickFigure/Skeleton2D/Hip:rotation")
 tracks/1/interp = 3
 tracks/1/loop_wrap = true
 tracks/1/keys = {
-"times": PackedFloat32Array(0, 0.016666668),
-"transitions": PackedFloat32Array(1, 1),
+"times": PackedFloat32Array(0, 0.033333335, 0.06666667),
+"transitions": PackedFloat32Array(1, 1, 1),
 "update": 0,
-"values": [0.0, 0.0]
+"values": [0.0, 0.0, 0.0]
 }
 tracks/2/type = "value"
 tracks/2/imported = false
@@ -1032,10 +1032,10 @@ tracks/2/path = NodePath("StickFigure/Skeleton2D/Hip/Spine:rotation")
 tracks/2/interp = 3
 tracks/2/loop_wrap = true
 tracks/2/keys = {
-"times": PackedFloat32Array(0, 0.016666668),
-"transitions": PackedFloat32Array(1, 1),
+"times": PackedFloat32Array(0, 0.033333335, 0.06666667),
+"transitions": PackedFloat32Array(1, 1, 1),
 "update": 0,
-"values": [-1.4660765716752369, -1.4486232791552935]
+"values": [-1.4660765716752369, -1.4486232791552935, -1.4311699866353502]
 }
 tracks/3/type = "value"
 tracks/3/imported = false
@@ -1044,10 +1044,10 @@ tracks/3/path = NodePath("StickFigure/Skeleton2D/Hip/Spine/Neck:rotation")
 tracks/3/interp = 3
 tracks/3/loop_wrap = true
 tracks/3/keys = {
-"times": PackedFloat32Array(0, 0.016666668),
-"transitions": PackedFloat32Array(1, 1),
+"times": PackedFloat32Array(0, 0.033333335, 0.06666667),
+"transitions": PackedFloat32Array(1, 1, 1),
 "update": 0,
-"values": [-0.03490658503988664, -0.05235987755982996]
+"values": [-0.03490658503988664, -0.05235987755982996, -0.06981317007977328]
 }
 tracks/4/type = "value"
 tracks/4/imported = false
@@ -1056,10 +1056,10 @@ tracks/4/path = NodePath("StickFigure/Skeleton2D/Hip/Spine/UpperArmNear:rotation
 tracks/4/interp = 3
 tracks/4/loop_wrap = true
 tracks/4/keys = {
-"times": PackedFloat32Array(0, 0.016666668),
-"transitions": PackedFloat32Array(1, 1),
+"times": PackedFloat32Array(0, 0.033333335, 0.06666667),
+"transitions": PackedFloat32Array(1, 1, 1),
 "update": 0,
-"values": [-1.937315469713706, -1.43116998663535]
+"values": [-1.937315469713706, -1.43116998663535, -1.2217304763960308]
 }
 tracks/5/type = "value"
 tracks/5/imported = false
@@ -1068,10 +1068,10 @@ tracks/5/path = NodePath("StickFigure/Skeleton2D/Hip/Spine/UpperArmNear/ForearmN
 tracks/5/interp = 3
 tracks/5/loop_wrap = true
 tracks/5/keys = {
-"times": PackedFloat32Array(0, 0.016666668),
-"transitions": PackedFloat32Array(1, 1),
+"times": PackedFloat32Array(0, 0.033333335, 0.06666667),
+"transitions": PackedFloat32Array(1, 1, 1),
 "update": 0,
-"values": [2.2863813201125716, 1.134464013796314]
+"values": [2.2863813201125716, 1.134464013796314, 0.47123889803846897]
 }
 tracks/6/type = "value"
 tracks/6/imported = false
@@ -1080,10 +1080,10 @@ tracks/6/path = NodePath("StickFigure/Skeleton2D/Hip/Spine/UpperArmFar:rotation"
 tracks/6/interp = 3
 tracks/6/loop_wrap = true
 tracks/6/keys = {
-"times": PackedFloat32Array(0, 0.016666668),
-"transitions": PackedFloat32Array(1, 1),
+"times": PackedFloat32Array(0, 0.033333335, 0.06666667),
+"transitions": PackedFloat32Array(1, 1, 1),
 "update": 0,
-"values": [1.9896753472735358, 1.4486232791552935]
+"values": [1.9896753472735358, 1.4486232791552935, 0.9424777960769379]
 }
 tracks/7/type = "value"
 tracks/7/imported = false
@@ -1092,10 +1092,10 @@ tracks/7/path = NodePath("StickFigure/Skeleton2D/Hip/Spine/UpperArmFar/ForearmFa
 tracks/7/interp = 3
 tracks/7/loop_wrap = true
 tracks/7/keys = {
-"times": PackedFloat32Array(0, 0.016666668),
-"transitions": PackedFloat32Array(1, 1),
+"times": PackedFloat32Array(0, 0.033333335, 0.06666667),
+"transitions": PackedFloat32Array(1, 1, 1),
 "update": 0,
-"values": [-1.2217304763960306, -0.8377580409572782]
+"values": [-1.2217304763960306, -0.8377580409572782, -0.47123889803846897]
 }
 tracks/8/type = "value"
 tracks/8/imported = false
@@ -1104,10 +1104,10 @@ tracks/8/path = NodePath("StickFigure/Skeleton2D/Hip/ThighNear:rotation")
 tracks/8/interp = 3
 tracks/8/loop_wrap = true
 tracks/8/keys = {
-"times": PackedFloat32Array(0, 0.016666668),
-"transitions": PackedFloat32Array(1, 1),
+"times": PackedFloat32Array(0, 0.033333335, 0.06666667),
+"transitions": PackedFloat32Array(1, 1, 1),
 "update": 0,
-"values": [1.0682085240253043, 0.9272952177460806]
+"values": [1.0682085240253043, 0.9272952177460806, 0.8174130922505554]
 }
 tracks/9/type = "value"
 tracks/9/imported = false
@@ -1116,10 +1116,10 @@ tracks/9/path = NodePath("StickFigure/Skeleton2D/Hip/ThighNear/ShinNear:rotation
 tracks/9/interp = 3
 tracks/9/loop_wrap = true
 tracks/9/keys = {
-"times": PackedFloat32Array(0, 0.016666668),
-"transitions": PackedFloat32Array(1, 1),
+"times": PackedFloat32Array(0, 0.033333335, 0.06666667),
+"transitions": PackedFloat32Array(1, 1, 1),
 "update": 0,
-"values": [1.3999666487804818, 1.5707964799467904]
+"values": [1.3999666487804818, 1.5707964799467904, 1.6546444886973206]
 }
 tracks/10/type = "value"
 tracks/10/imported = false
@@ -1128,10 +1128,10 @@ tracks/10/path = NodePath("StickFigure/Skeleton2D/Hip/ThighFar:rotation")
 tracks/10/interp = 3
 tracks/10/loop_wrap = true
 tracks/10/keys = {
-"times": PackedFloat32Array(0, 0.016666668),
-"transitions": PackedFloat32Array(1, 1),
+"times": PackedFloat32Array(0, 0.033333335, 0.06666667),
+"transitions": PackedFloat32Array(1, 1, 1),
 "update": 0,
-"values": [0.5371165326047471, 0.42526593045260963]
+"values": [0.5371165326047471, 0.42526593045260963, 0.312793317025594]
 }
 tracks/11/type = "value"
 tracks/11/imported = false
@@ -1140,10 +1140,10 @@ tracks/11/path = NodePath("StickFigure/Skeleton2D/Hip/ThighFar/ShinFar:rotation"
 tracks/11/interp = 3
 tracks/11/loop_wrap = true
 tracks/11/keys = {
-"times": PackedFloat32Array(0, 0.016666668),
-"transitions": PackedFloat32Array(1, 1),
+"times": PackedFloat32Array(0, 0.033333335, 0.06666667),
+"transitions": PackedFloat32Array(1, 1, 1),
 "update": 0,
-"values": [1.5107603022646376, 1.6245721356484646]
+"values": [1.5107603022646376, 1.6245721356484646, 1.726423678213664]
 }
 
 [sub_resource type="Animation" id="Animation_v8eb3"]
@@ -1771,7 +1771,12 @@ OnLeaveGround = "Fall"
 
 [node name="PlatformDrop" type="Node2D" parent="States" parent_id_path=PackedInt32Array(2123421550) index="8" unique_id=114736060]
 script = ExtResource("3_3fs40")
-OnLeaveGround = "Fall"
+Duration = 5
+NextState = "Fall"
+NextStateInAir = "Fall"
+Movement = 2
+Flags = 3
+OnLanding = "Land"
 
 [node name="DropThrough" type="Node" parent="States/PlatformDrop" index="0" unique_id=919454572]
 script = ExtResource("6_rl7ky")
@@ -1898,17 +1903,17 @@ scale = Vector2(0.9999995, 0.9999995)
 
 [node name="ForearmFar" parent="StickFigure/Skeleton2D/Hip/Spine/UpperArmFar" index="0" unique_id=2001125278]
 rotation = 5.7595863
-scale = Vector2(0.9999997, 0.9999997)
+scale = Vector2(0.99999964, 0.99999964)
 
 [node name="UpperArmNear" parent="StickFigure/Skeleton2D/Hip/Spine" index="2" unique_id=453062181]
 scale = Vector2(0.99999917, 0.99999917)
 
 [node name="ForearmNear" parent="StickFigure/Skeleton2D/Hip/Spine/UpperArmNear" index="0" unique_id=337326735]
 rotation = 5.67232
-scale = Vector2(0.9999997, 0.9999997)
+scale = Vector2(0.9999996, 0.9999996)
 
 [node name="ThighFar" parent="StickFigure/Skeleton2D/Hip" parent_id_path=PackedInt32Array(1318481573) index="1" unique_id=40776318]
-scale = Vector2(0.9999994, 0.9999994)
+scale = Vector2(0.99999934, 0.99999934)
 
 [node name="ShinFar" parent="StickFigure/Skeleton2D/Hip/ThighFar" index="0" unique_id=622185648]
 rotation = 6.0213857
