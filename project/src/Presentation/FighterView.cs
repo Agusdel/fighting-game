@@ -39,15 +39,14 @@ public partial class FighterView : Node2D
     /// <summary>An instance of the fighter scene, used only for its visuals (stick figure or sprites) and its animations.</summary>
     private Node2D? _visual;
     private AnimationPlayer? _animationPlayer;
-    private string _playedAnimation = "";
 
     /// <summary>
     /// Shows the visuals of a fighter scene: an instance of the scene follows this view, and its state animations
     /// show the pose of the current state frame. Without visuals, the view draws a rectangle body.
     /// </summary>
     /// <remarks>
-    /// The <c>AnimationPlayer</c> never runs on its own clock (manual process mode): each refresh seeks the animation of
-    /// the state (same name) to the state frame. So a rollback, a replay jump, or hitstop shows the correct pose at once.
+    /// The pose comes from <see cref="FighterPose"/>: each refresh seeks the animation of the state (same name) to the
+    /// state frame, so a rollback, a replay jump, or hitstop shows the correct pose at once.
     /// Each animation should key all bones: a bone that the new animation does not key can keep the value of the last one.
     /// </remarks>
     public void SetVisual(PackedScene fighterScene)
@@ -58,16 +57,10 @@ public partial class FighterView : Node2D
         _visual.ShowBehindParent = true;
         AddChild(_visual);
 
-        _animationPlayer = null;
-        _playedAnimation = "";
-        foreach (Node child in _visual.GetChildren())
+        _animationPlayer = FighterPose.FindPlayer(_visual);
+        if (_animationPlayer != null)
         {
-            if (child is AnimationPlayer player)
-            {
-                _animationPlayer = player;
-                player.CallbackModeProcess = AnimationMixer.AnimationCallbackModeProcess.Manual;
-                break;
-            }
+            FighterPose.UseManualProcess(_animationPlayer);
         }
         foreach (Node node in _visual.FindChildren("*", nameof(Node2D), recursive: true, owned: false))
         {
@@ -122,40 +115,12 @@ public partial class FighterView : Node2D
         {
             _visual.Scale = new Vector2(_facing < 0 ? -1 : 1, 1);
             _visual.Modulate = _intangible ? new Color(1, 1, 1, 0.3f) : Colors.White;
-            ShowPose(state.Name, fighter.StateFrame);
+            if (_animationPlayer != null)
+            {
+                FighterPose.Show(_animationPlayer, state.Name, fighter.StateFrame);
+            }
         }
         QueueRedraw();
-    }
-
-    /// <summary>
-    /// Seeks the animation of the state to the state frame. A looping animation repeats (frame modulo its length); a
-    /// non-looping one stays on its last frame. A state with no animation shows the "RESET" pose.
-    /// </summary>
-    private void ShowPose(string stateName, int stateFrame)
-    {
-        if (_animationPlayer == null)
-        {
-            return;
-        }
-        string name = _animationPlayer.HasAnimation(stateName) ? stateName
-            : _animationPlayer.HasAnimation("RESET") ? "RESET"
-            : "";
-        if (name.Length == 0)
-        {
-            return;
-        }
-
-        Animation animation = _animationPlayer.GetAnimation(name);
-        double time = (double)stateFrame / GameConstants.TickRate;
-        time = animation.LoopMode != Animation.LoopModeEnum.None && animation.Length > 0
-            ? time % animation.Length
-            : Math.Min(time, animation.Length);
-        if (_playedAnimation != name)
-        {
-            _animationPlayer.Play(name);
-            _playedAnimation = name;
-        }
-        _animationPlayer.Seek(time, update: true);
     }
 
     /// <summary>

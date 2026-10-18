@@ -1,0 +1,58 @@
+# Pose tables of Fighter01 (the current values in res://scenes/fighters/Fighter01.tscn).
+# Read by tools/pose-generator/generate.sh. Lines that start with "#" are removed before use.
+# Format: 'Animation': [frames, loop, [[frame, [hip, spine, neck, footNear, footFar, handNear, handFar]], ...], loopStartFrame (optional)],
+#   hip, feet: Vector2 relative to the feet origin (whole pixels; the fighter faces right, +X = forward, Y down).
+#   spine, neck: global angles in degrees (-90 = straight up).
+#   hand: Vector2(x, y) = a target point (2-bone IK; the elbow bends down or back), or [upper arm, forearm] = global
+#     angles in degrees (0 = forward, 90 = down, 180 = back, -90 = up). Angles give exact arm shapes.
+#   Far = the side away from the camera (drawn darker). Stances: far leg and far arm in front.
+#   Keys can be on half frames (bone tracks only). Linear interpolation; angles take the shortest way (add a middle key
+#   to turn more than 180 degrees in one direction).
+{
+	'Idle': [30, true, [
+		[0, [Vector2(-7, -35), -80.0, -85.0, Vector2(-18, 0), Vector2(4, 0), Vector2(4, -46), Vector2(13, -50)]],
+		[15, [Vector2(-7, -34), -80.0, -85.0, Vector2(-18, 0), Vector2(4, 0), Vector2(4, -45), Vector2(13, -49)]],
+	]],
+	'Walk': [20, true, [
+		[0, [Vector2(-3, -33), -76.0, -82.0, Vector2(-24, -6), Vector2(19, 0), [55.0, -15.0], [148.0, 85.0]]],
+		[2.5, [Vector2(-3, -31), -76.0, -82.0, Vector2(-20, -12), Vector2(7, 0), [65.0, -5.0], [138.0, 72.0]]],
+		[5, [Vector2(-3, -35), -76.0, -82.0, Vector2(-12, -22), Vector2(-6, 0), [95.0, 25.0], [100.0, 30.0]]],
+		[7.5, [Vector2(-3, -38), -76.0, -82.0, Vector2(6, -16), Vector2(-18, -1), [120.0, 65.0], [75.0, 0.0]]],
+		[10, [Vector2(-3, -33), -76.0, -82.0, Vector2(19, 0), Vector2(-24, -6), [148.0, 85.0], [55.0, -15.0]]],
+		[12.5, [Vector2(-3, -31), -76.0, -82.0, Vector2(7, 0), Vector2(-20, -12), [138.0, 72.0], [65.0, -5.0]]],
+		[15, [Vector2(-3, -35), -76.0, -82.0, Vector2(-6, 0), Vector2(-12, -22), [100.0, 30.0], [95.0, 25.0]]],
+		[17.5, [Vector2(-3, -38), -76.0, -82.0, Vector2(-18, -1), Vector2(6, -16), [75.0, 0.0], [120.0, 65.0]]],
+	]],
+	'JumpSquat': [3, false, [
+		[0, [Vector2(-6, -32), -76.0, -82.0, Vector2(-16, 0), Vector2(5, 0), [115.0, 70.0], [100.0, 40.0]]],
+		[2, [Vector2(-5, -27), -66.0, -76.0, Vector2(-16, 0), Vector2(5, 0), [150.0, 120.0], [140.0, 115.0]]],
+	]],
+	'Jump': [14, false, [
+		[0, [Vector2(-3, -39), -86.0, -88.0, Vector2(-6, -2), Vector2(1, 0), [130.0, 100.0], [122.0, 92.0]]],
+		[4, [Vector2(-3, -40), -85.0, -88.0, Vector2(-6, -6), Vector2(4, -6), [155.0, 125.0], [65.0, 28.0]]],
+		[8, [Vector2(-3, -40), -84.0, -88.0, Vector2(-6, -9), Vector2(6, -11), [-162.0, -138.0], [-22.0, -48.0]]],
+		[14, [Vector2(-3, -40), -82.0, -86.0, Vector2(-5, -13), Vector2(7, -16), [-152.0, -125.0], [-28.0, -55.0]]],
+	]],
+	'Fall': [32, true, [
+		[0, [Vector2(-3, -40), -82.0, -86.0, Vector2(-5, -13), Vector2(7, -16), [-152.0, -125.0], [-28.0, -55.0]]],
+		[8, [Vector2(-3, -39), -84.0, -88.0, Vector2(-10, -12), Vector2(6, -3), [-152.0, -125.0], [-28.0, -55.0]]],
+		[14, [Vector2(-3, -39), -84.0, -88.0, Vector2(-9, -15), Vector2(7, -6), [-146.0, -118.0], [-34.0, -62.0]]],
+		[20, [Vector2(-3, -39), -84.0, -88.0, Vector2(-10, -12), Vector2(6, -3), [-152.0, -125.0], [-28.0, -55.0]]],
+		[26, [Vector2(-3, -39), -84.0, -88.0, Vector2(-11, -10), Vector2(5, -1), [-158.0, -132.0], [-22.0, -48.0]]],
+		[32, [Vector2(-3, -39), -84.0, -88.0, Vector2(-10, -12), Vector2(6, -3), [-152.0, -125.0], [-28.0, -55.0]]],
+	], 8],
+	'WalkOff': [6, false, [
+		[0, [Vector2(-3, -36), -78.0, -82.0, Vector2(-12, -6), Vector2(8, -4), [70.0, -10.0], [125.0, 50.0]]],
+		[2.5, [Vector2(-3, -38), -80.0, -84.0, Vector2(-9, -9), Vector2(8, -10), [130.0, 120.0], [40.0, -10.0]]],
+		[5, [Vector2(-3, -40), -82.0, -86.0, Vector2(-5, -13), Vector2(7, -16), [-152.0, -125.0], [-28.0, -55.0]]],
+	]],
+	'Land': [3, false, [
+		[0, [Vector2(-4, -30), -70.0, -78.0, Vector2(-16, 0), Vector2(7, 0), [170.0, 140.0], [20.0, 10.0]]],
+		[1, [Vector2(-4, -27), -60.0, -72.0, Vector2(-16, 0), Vector2(8, 0), [80.0, 80.0], [60.0, 70.0]]],
+		[2, [Vector2(-6, -32), -76.0, -83.0, Vector2(-17, 0), Vector2(5, 0), [122.0, -3.0], [88.0, -22.0]]],
+	]],
+	'PlatformDrop': [2, false, [
+		[0, [Vector2(-3, -34), -84.0, -86.0, Vector2(-9, -4), Vector2(5, -6), [165.0, -64.0], [30.0, -40.0]]],
+		[1, [Vector2(-3, -37), -83.0, -86.0, Vector2(-7, -9), Vector2(6, -11), [-165.0, -100.0], [0.0, -48.0]]],
+	]],
+}

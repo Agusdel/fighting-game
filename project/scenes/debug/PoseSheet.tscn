@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://c0k3xwoujuusk"]
+
+[ext_resource type="Script" uid="uid://bemt4ug7hprhs" path="res://src/Debug/PoseSheet.cs" id="1_luxvx"]
+
+[node name="PoseSheet" type="Node2D" unique_id=151847834]
+script = ExtResource("1_luxvx")
