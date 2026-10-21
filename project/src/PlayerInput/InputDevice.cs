@@ -10,6 +10,10 @@ namespace FightingGame.PlayerInput;
 /// <remarks>
 /// The device is read once per simulation tick (<see cref="Read"/>). The simulation only gets the resulting
 /// <see cref="InputFlags"/>, so the input source has no effect on determinism.
+///
+/// Input latch: a press and release between two ticks (a short tap, or a tap while the match is paused) would not be
+/// seen by <see cref="Read"/>. So the match gives its input events to <see cref="RecordPress"/>, and the next
+/// <see cref="Read"/> returns the recorded presses as held for that one tick.
 /// </remarks>
 public sealed class InputDevice
 {
@@ -23,6 +27,9 @@ public sealed class InputDevice
 
     /// <summary>True for a device that never presses a button (see <see cref="CreateIdle"/>).</summary>
     private readonly bool _idle;
+
+    /// <summary>The buttons pressed by input events since the last <see cref="Read"/>.</summary>
+    private InputFlags _recordedPresses;
 
     public InputDevice(string id, string displayName)
         : this(id, displayName, idle: false)
@@ -58,10 +65,14 @@ public sealed class InputDevice
     /// </summary>
     public static InputDevice CreateIdle(int number) => new($"idle{number}", $"Idle {number}", idle: true);
 
-    /// <summary>The buttons of this device that are held now.</summary>
+    /// <summary>
+    /// The buttons of this device that are held now, plus the buttons pressed since the last read (see the remarks).
+    /// Clears the recorded presses.
+    /// </summary>
     public InputFlags Read()
     {
-        InputFlags flags = InputFlags.None;
+        InputFlags flags = _recordedPresses;
+        _recordedPresses = InputFlags.None;
         if (_idle)
         {
             return flags;
@@ -74,6 +85,22 @@ public sealed class InputDevice
         if (Input.IsActionPressed(_attack1)) flags |= InputFlags.Attack1;
         if (Input.IsActionPressed(_attack2)) flags |= InputFlags.Attack2;
         return flags;
+    }
+
+    /// <summary>Records the buttons that the event presses, for the next <see cref="Read"/>. Key repeats are ignored.</summary>
+    public void RecordPress(InputEvent inputEvent)
+    {
+        if (_idle || !inputEvent.IsPressed() || inputEvent.IsEcho())
+        {
+            return;
+        }
+        if (inputEvent.IsActionPressed(_left)) _recordedPresses |= InputFlags.Left;
+        if (inputEvent.IsActionPressed(_right)) _recordedPresses |= InputFlags.Right;
+        if (inputEvent.IsActionPressed(_up)) _recordedPresses |= InputFlags.Up;
+        if (inputEvent.IsActionPressed(_down)) _recordedPresses |= InputFlags.Down;
+        if (inputEvent.IsActionPressed(_jump)) _recordedPresses |= InputFlags.Jump;
+        if (inputEvent.IsActionPressed(_attack1)) _recordedPresses |= InputFlags.Attack1;
+        if (inputEvent.IsActionPressed(_attack2)) _recordedPresses |= InputFlags.Attack2;
     }
 
     /// <summary>True if the event presses the join button of this device (jump or light attack).</summary>

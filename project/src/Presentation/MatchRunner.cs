@@ -162,6 +162,22 @@ public partial class MatchRunner : Node2D
         _ownInputDevices = null;
     }
 
+    /// <summary>
+    /// Gives each input event to the devices of the slots, so a tap between two ticks is not lost (see
+    /// <see cref="InputDevice.RecordPress"/>). The event is not marked as handled.
+    /// </summary>
+    public override void _Input(InputEvent @event)
+    {
+        if (_session == null || _setup == null)
+        {
+            return;
+        }
+        foreach (InputDevice device in _setup.SlotDevices)
+        {
+            device.RecordPress(@event);
+        }
+    }
+
     public override void _UnhandledInput(InputEvent @event)
     {
         if (@event.IsActionPressed(PauseAction))
