@@ -32,7 +32,13 @@ public partial class MatchRunner : Node2D
     /// <summary>If rendering stops for a long time, run at most this many ticks in one frame, and drop the rest of the time.</summary>
     private const int MaxTicksPerFrame = 5;
 
+    /// <summary>While the debug step key is held: the time before the steps repeat, and the time between steps.</summary>
+    private const double DebugStepRepeatDelay = 0.4;
+    private const double DebugStepRepeatInterval = 1.0 / 20;
+
     private static readonly StringName PauseAction = "match_pause";
+    private static readonly StringName DebugPauseAction = "debug_pause";
+    private static readonly StringName DebugStepAction = "debug_step";
 
     // Default setup, used only when the scene runs alone (no Setup call).
 
@@ -77,6 +83,16 @@ public partial class MatchRunner : Node2D
     /// The match stops and shows the report.
     /// </summary>
     private Exception? _desyncError;
+
+    /// <summary>
+    /// Debug pause: the simulation does not run, and the views keep the last state. Home pauses and resumes. End runs
+    /// exactly one tick (with the inputs held at that moment) and pauses. See <see cref="CanUseDebugPause"/>.
+    /// </summary>
+    private bool _debugPaused;
+
+    /// <summary>How long the debug step key is held, and the repeated steps that ran in that time.</summary>
+    private double _debugStepHeldTime;
+    private int _debugStepRepeats;
 
     /// <summary>Raised when a player asks to leave the match (the pause action: Esc or the controller Start button).</summary>
     public event Action? ExitRequested;
@@ -159,6 +175,43 @@ public partial class MatchRunner : Node2D
             return;
         }
 
+        HandleDebugInput(@event);
+    }
+
+    /// <summary>
+    /// The debug keys: the debug pause (Home, End) and the debug views (F1 to F3). They work only in a debug build (the
+    /// editor, or an export with a debug template); a release export ignores them.
+    /// </summary>
+    private void HandleDebugInput(InputEvent @event)
+    {
+        if (!OS.IsDebugBuild())
+        {
+            return;
+        }
+
+        if (@event.IsActionPressed(DebugPauseAction) && CanUseDebugPause())
+        {
+            GetViewport().SetInputAsHandled();
+            _debugPaused = !_debugPaused;
+            _accumulator = 0;
+            RefreshViews();
+            return;
+        }
+
+        // The key repeat of the system (echo events) is not used: it repeats only the key pressed last, so a jump press
+        // stops it. RepeatHeldDebugStep repeats the steps while the key is held.
+        if (@event.IsActionPressed(DebugStepAction) && CanUseDebugPause())
+        {
+            GetViewport().SetInputAsHandled();
+            _debugPaused = true;
+            _accumulator = 0;
+            _debugStepHeldTime = 0;
+            _debugStepRepeats = 0;
+            RunTick();
+            RefreshViews();
+            return;
+        }
+
         if (@event is not InputEventKey { Pressed: true, Echo: false } key)
         {
             return;
@@ -191,6 +244,12 @@ public partial class MatchRunner : Node2D
             return;
         }
 
+        if (_debugPaused)
+        {
+            RepeatHeldDebugStep(delta);
+            return;
+        }
+
         _accumulator += delta;
 
         int ticks = 0;
@@ -198,17 +257,8 @@ public partial class MatchRunner : Node2D
         {
             _accumulator -= TickDuration;
             ticks++;
-            for (int slot = 0; slot < _setup!.PlayerCount; slot++)
+            if (!RunTick())
             {
-                _session.SetLocalInput(slot, _setup.SlotDevices[slot].Read());
-            }
-            try
-            {
-                _session.AdvanceFrame();
-            }
-            catch (Exception exception) when (exception is SyncTestException or DesyncException)
-            {
-                StopWithDesyncError(exception);
                 return;
             }
         }
@@ -223,6 +273,79 @@ public partial class MatchRunner : Node2D
             RefreshViews();
         }
     }
+
+    /// <summary>
+    /// While the debug step key is held (after the first step of the key press), runs one tick each
+    /// <see cref="DebugStepRepeatInterval"/>, after <see cref="DebugStepRepeatDelay"/>. It reads the held state of the
+    /// action, so presses of other keys do not stop it.
+    /// </summary>
+    private void RepeatHeldDebugStep(double delta)
+    {
+        if (!Input.IsActionPressed(DebugStepAction) || !CanUseDebugPause())
+        {
+            return;
+        }
+
+        _debugStepHeldTime += delta;
+        if (_debugStepHeldTime < DebugStepRepeatDelay)
+        {
+            return;
+        }
+
+        int due = 1 + (int)((_debugStepHeldTime - DebugStepRepeatDelay) / DebugStepRepeatInterval);
+        int ticks = 0;
+        while (_debugStepRepeats < due && ticks < MaxTicksPerFrame)
+        {
+            _debugStepRepeats++;
+            ticks++;
+            if (!RunTick())
+            {
+                break;
+            }
+        }
+        // After a long frame, drop the steps that are late (the same as the normal run).
+        _debugStepRepeats = Math.Max(_debugStepRepeats, due);
+
+        if (ticks > 0)
+        {
+            RefreshViews();
+        }
+    }
+
+    /// <summary>
+    /// Gives the local inputs to the session and runs one tick. Returns false if the match is stopped (no session, or a
+    /// desync was found in this tick or before).
+    /// </summary>
+    private bool RunTick()
+    {
+        if (_session == null || _desyncError != null)
+        {
+            return false;
+        }
+
+        for (int slot = 0; slot < _setup!.PlayerCount; slot++)
+        {
+            _session.SetLocalInput(slot, _setup.SlotDevices[slot].Read());
+        }
+        try
+        {
+            _session.AdvanceFrame();
+        }
+        catch (Exception exception) when (exception is SyncTestException or DesyncException)
+        {
+            StopWithDesyncError(exception);
+            return false;
+        }
+        return true;
+    }
+
+    /// <summary>
+    /// The debug pause keys work only in a debug build (the editor, or an export with a debug template; a release
+    /// export ignores them) and only in a session where all players are on this machine. In an online match, a pause
+    /// on one machine would make the other machines wait or desync.
+    /// </summary>
+    private bool CanUseDebugPause() =>
+        OS.IsDebugBuild() && _session is (LocalSession or SyncTestSession or LoopbackMatchSession);
 
     /// <summary>
     /// Freezes the match (the views keep the last state) and shows the report on top of the debug text.
@@ -262,7 +385,11 @@ public partial class MatchRunner : Node2D
             LoopbackMatchSession loopback => DescribeLoopback(loopback),
             _ => "Local",
         };
-        return _desyncError == null ? description : $"{description}\nDESYNC: the match is stopped";
+        if (_desyncError != null)
+        {
+            return $"{description}\nDESYNC: the match is stopped";
+        }
+        return _debugPaused ? $"{description}   PAUSED (Home: resume, End: next frame)" : description;
     }
 
     private string DescribeLoopback(LoopbackMatchSession loopback)
