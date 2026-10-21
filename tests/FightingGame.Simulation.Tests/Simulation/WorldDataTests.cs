@@ -157,7 +157,7 @@ public class WorldDataTests
         {
             if (rng.NextInt(6) == 0)
             {
-                current = (InputFlags)rng.NextInt(1 << 7);
+                current = (InputFlags)rng.NextInt((int)InputFlagsExtensions.AllButtons + 1);
             }
             inputs[i] = current;
         }

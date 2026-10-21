@@ -12,12 +12,14 @@ namespace FightingGame.Simulation;
 /// and a phase never reads data that another fighter writes in the same phase.
 /// So the player slot order cannot change the result.
 /// <list type="number">
-/// <item>Hitstop: a fighter with hitstop frames left is frozen on this frame. It skips phases 2, 3, and 5.</item>
+/// <item>Hitstop and input buffer: a fighter with hitstop frames left is frozen on this frame. It skips phases 2, 3,
+/// and 5. Each fighter (also a frozen one) records its button presses in <see cref="FighterData.InputBuffer"/>.</item>
 /// <item>State: the state machine of each fighter (<see cref="FighterStateMachine.Update"/>), which also sets the velocity.</item>
 /// <item>Movement: move each fighter and resolve collisions with the stage only. Fighters do not block each other.</item>
 /// <item>Hits: detect all hits, then apply them all at the same time (<see cref="FighterCombat"/>).</item>
 /// <item>Input memory: each fighter stores this frame's input, to detect pressed and released buttons on the next
-/// frame. A frozen fighter keeps its old input, so a button pressed during hitstop counts as pressed after it.</item>
+/// frame, and its input buffer advances by one frame. A frozen fighter keeps its old input and its buffer, so a button
+/// pressed during hitstop counts as pressed after it.</item>
 /// <item>Match rules: end the round when at most one fighter is left, and start the next round after a delay
 /// (<see cref="MatchRules"/>).</item>
 /// </list>
@@ -30,11 +32,16 @@ public static class Simulator
         for (int i = 0; i < GameConstants.MaxPlayers; i++)
         {
             ref FighterData fighter = ref state.Fighters[i];
-            if (fighter.Active && fighter.HitstopFrames > 0)
+            if (!fighter.Active)
+            {
+                continue;
+            }
+            if (fighter.HitstopFrames > 0)
             {
                 fighter.HitstopFrames--;
                 frozen[i] = true;
             }
+            fighter.InputBuffer.Record(input[i] & ~fighter.PrevInput, data.Rules.InputBufferFrames);
         }
 
         for (int i = 0; i < GameConstants.MaxPlayers; i++)
@@ -63,6 +70,7 @@ public static class Simulator
             if (fighter.Active && !frozen[i])
             {
                 fighter.PrevInput = input[i];
+                fighter.InputBuffer.Advance();
             }
         }
 

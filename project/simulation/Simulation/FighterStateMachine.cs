@@ -1,3 +1,5 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace FightingGame.Simulation;
 
 /// <summary>
@@ -17,6 +19,8 @@ namespace FightingGame.Simulation;
 /// <item>The <see cref="FighterStateData.OnUpdate"/> hook.</item>
 /// <item>The movement mode sets the velocity, then gravity applies.</item>
 /// </list>
+/// A transition that fires consumes the buttons of its <see cref="ConditionType.InputPressed"/> conditions from the
+/// input buffer (<see cref="InputBufferData.Consume"/>), so one press starts only one action.
 /// Shared transitions come first, so an action (jump, attack) has priority over a movement change (Idle to Walk)
 /// on the same frame. Landing and leaving the ground are handled after the collision, in <see cref="FighterMovement"/>.
 /// At most one transition happens per frame. The rules of a state entered by a duration end are checked from the next
@@ -42,9 +46,10 @@ public static class FighterStateMachine
             Enter(ref fighter, fighter.Grounded ? state.NextState : state.NextStateInAir, context);
             state = definition.States[fighter.StateId];
         }
-        else if (TryFindTransition(fighter, state, context, out ushort target))
+        else if (TryFindTransition(fighter, state, context, out TransitionData? transition))
         {
-            Enter(ref fighter, target, context);
+            fighter.InputBuffer.Consume(PressedButtons(transition));
+            Enter(ref fighter, transition.TargetState, context);
             state = definition.States[fighter.StateId];
         }
 
@@ -81,22 +86,24 @@ public static class FighterStateMachine
         context.Definition.States[stateId].OnEnter?.Invoke(ref fighter, context);
     }
 
-    private static bool TryFindTransition(in FighterData fighter, FighterStateData state, in StateContext context, out ushort target)
+    private static bool TryFindTransition(in FighterData fighter, FighterStateData state, in StateContext context,
+        [NotNullWhen(true)] out TransitionData? found)
     {
         if (state.Has(StateFlags.Actionable))
         {
             TransitionData[] shared = fighter.Grounded
                 ? context.Definition.SharedGroundTransitions
                 : context.Definition.SharedAirTransitions;
-            if (TryFindTransition(fighter, shared, context, out target))
+            if (TryFindTransition(fighter, shared, context, out found))
             {
                 return true;
             }
         }
-        return TryFindTransition(fighter, state.Transitions, context, out target);
+        return TryFindTransition(fighter, state.Transitions, context, out found);
     }
 
-    private static bool TryFindTransition(in FighterData fighter, TransitionData[] transitions, in StateContext context, out ushort target)
+    private static bool TryFindTransition(in FighterData fighter, TransitionData[] transitions, in StateContext context,
+        [NotNullWhen(true)] out TransitionData? found)
     {
         foreach (TransitionData transition in transitions)
         {
@@ -117,13 +124,27 @@ public static class FighterStateMachine
 
             if (match)
             {
-                target = transition.TargetState;
+                found = transition;
                 return true;
             }
         }
 
-        target = FighterStateData.NoState;
+        found = null;
         return false;
+    }
+
+    /// <summary>The buttons of the <see cref="ConditionType.InputPressed"/> conditions of a transition.</summary>
+    private static InputFlags PressedButtons(TransitionData transition)
+    {
+        InputFlags buttons = InputFlags.None;
+        foreach (ConditionData condition in transition.Conditions)
+        {
+            if (condition.Type == ConditionType.InputPressed)
+            {
+                buttons |= condition.Buttons;
+            }
+        }
+        return buttons;
     }
 
     public static bool IsTrue(in ConditionData condition, in FighterData fighter, in StateContext context)
@@ -131,7 +152,7 @@ public static class FighterStateMachine
         switch (condition.Type)
         {
             case ConditionType.InputPressed:
-                return (context.Pressed & condition.Buttons) == condition.Buttons;
+                return fighter.InputBuffer.Contains(condition.Buttons);
             case ConditionType.InputHeld:
                 return (context.Input & condition.Buttons) == condition.Buttons;
             case ConditionType.InputReleased:

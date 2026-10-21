@@ -32,6 +32,6 @@ internal static class TestBot
             InputFlags walk = distance > Fixed.Zero ? InputFlags.Right : InputFlags.Left;
             return rng.NextInt(30) == 0 ? walk | InputFlags.Jump : walk;
         }
-        return (InputFlags)rng.NextInt(1 << 7);
+        return (InputFlags)rng.NextInt((int)InputFlagsExtensions.AllButtons + 1);
     }
 }

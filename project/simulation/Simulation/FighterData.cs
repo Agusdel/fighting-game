@@ -48,6 +48,9 @@ public struct FighterData
     /// <summary>The input of the previous frame. Used to detect buttons pressed on this frame.</summary>
     public InputFlags PrevInput;
 
+    /// <summary>The recent button presses that an <see cref="ConditionType.InputPressed"/> condition can still use.</summary>
+    public InputBufferData InputBuffer;
+
     public int Health;
 
     /// <summary>While greater than 0, the fighter is frozen (hitstop): no state update, no movement, no new input.</summary>
@@ -76,6 +79,7 @@ public struct FighterData
         hasher.Add(DropThroughTimer);
         hasher.Add(JumpsLeft);
         hasher.Add((ushort)PrevInput);
+        InputBuffer.Hash(ref hasher);
         hasher.Add(Health);
         hasher.Add(HitstopFrames);
         hasher.Add(HitstunFrames);

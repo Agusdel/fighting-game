@@ -17,16 +17,18 @@ Update this section at the end of each work session.
 - **To check (user):** the feel of a loopback match with latency (`SessionType` = `Loopback` on `Main`, F3 changes the shown player).
 - **Now: M6.5 fighter authoring (section 16), step 4 (stick figure animations).** Steps 1–3 and 4a (stick figure, playback) are done. Animated in `Fighter01.tscn` (all reviewed by the user): Idle, Walk (a run), JumpSquat, Jump, Fall (intro + loop with a `loop_start` marker), Land, PlatformDrop, and the new state WalkOff (running off a ledge). Not animated yet (they show the RESET pose): DoubleJump, Hitstun, Dead, and the six attacks.
 - **Next (in this order):**
-  0. **Input latch and input buffer (section 17, agreed 2026-10-20), now.** Step 1 (latch) done, the user tests it. Next: step 2 (buffer).
+  0. **Input latch and input buffer (section 17, agreed 2026-10-20), now.** Step 1 (latch) done and tested by the user. Steps 2 (buffer) and 3 (older sections updated) done; the user tests and commits.
   1. **DoubleJump with a flip.** Design first, with the user: the user wants to block attacks during the flip. Today the air attacks are shared air transitions, which apply to all `Actionable` states, and DoubleJump is `Actionable`. Options to discuss: DoubleJump not `Actionable` during the flip (then it also cannot double jump again or turn; a duration and a next state, for example Fall, are needed), or a frame window on the shared transitions, or a new flag. The flip itself: a full body rotation in the animation (rotate the `Hip` bone, or the `Skeleton2D`; the boxes do not rotate).
   2. **Hit reactions:** Hitstun and Dead animations.
   3. **Attacks (step 4d):** six attacks; the hitbox frames must match the poses (use the pose sheet with boxes). New states for attacks may come up. The raised arms of Jump and Fall are far from the guard, so check the transitions into the air attacks.
-  4. Then step 5 (tuning in the editor) and the optional step 6 (input buffer, cancel windows).
+  4. Then step 5 (tuning in the editor) and the optional step 6 (cancel windows; the input buffer is done).
 - **How to make and check animations (read before animation work):** poses are made with the pose generator (`tools/pose-generator/`: `generate.sh` + `fighter01-poses.txt`, the current values of all animations; format in the file header). It replaces the listed animations with bone tracks only, so it must not be used on animations with box tracks (attacks) without adding the box tracks again. Check results with `scripts/pose-sheet.sh` (one PNG of frames or of transition sequences, see `.claude/CLAUDE.md`), not in the running match. Rules learned with the user: a stance has the far leg and the far arm in front (3/4 view toward the camera); a run swings the arm opposite to the front leg; all animations must connect (check Idle and Walk at several frames into each state, and each state into the next); arms are set by angles when the shape matters (IK lifts elbows); linear angle interpolation takes the shortest way (add a middle key to turn more than 180°); quick and responsive style (reference: Nidhogg), with body language but not far from the guard where attacks follow.
 - **Known items for later (animation):** Land is 3 frames (the user chose no extra landing lag; the motion is fast; review later). At Idle → Walk the arms change sides at once (stance vs run arms). The run is "good enough" for now. The body hurtbox (36 × 80) could be narrower. Godot saves tiny scale noise (about 0.9999997) on the leg bones in `Fighter01.tscn` (harmless). The arms of a fast fall look blurred on a 60 Hz display (sample-and-hold motion blur, not a game bug). The Godot editor closed twice after a change of `FighterBase.tscn` while `Fighter01.tscn` was open: close inherited scenes before you change a base scene.
 - **Input actions for debug keys** start with `debug_` (`debug_pause`, `debug_step`). F1 to F3 stay plain keys in `MatchRunner` (no input actions); like the debug pause keys, they work only in debug builds.
 - **Main scene:** the user set the main scene in `project.godot` to `Match.tscn` (on purpose, for quick tests: F5 starts a match). Set it back to `Main.tscn` when the work on multiplayer (M7) starts.
 - **M7 open points:** time sync threshold (15.11 step 3), `RollbackSession.Dispose` or a message router (15.11 step 2).
+- **Jump off a ledge (user request 2026-10-20, design first):** today, JumpSquat has `OnLeaveGround` = Fall, so a fighter that runs off a ledge during the squat loses the jump. Proposed: (1) JumpSquat that leaves the ground goes to Jump at once (the press is never lost). Careful: a state entered by `OnLeaveGround` or `OnLanding` (in the movement phase) skips its frame 0 frame actions, because the next `Update` starts at state frame 1; Jump has its `Jump` frame action on frame 0. (2) Coyote frames: for a few frames after walking off a ledge (`WalkOff` is 6 frames), a Jump press gives the ground jump (straight to Jump, no squat), not the double jump. Today the shared air transitions (DoubleJump) are checked before the state's own transitions, so this needs a design (rule order, a condition, or a flag).
+- **Input details for later (low priority):** a buffered attack uses the direction held when the attack starts, not the direction held at the press (a quick tap of Left + Attack1 during a long busy state gives a neutral attack). Left + Right held together give no horizontal direction, in any order; the usual keyboard rule is "the last press has priority" (SOCD), in `InputDevice`, with no simulation change.
 - **Small items for later:** pause menu (Esc / controller Start; now it goes back to the lobby), review the `Data` names (section 12.3), tune movement and attack values (better when fighter states can be authored in the editor, M6.5).
 - **Before the first public build:** create `scripts/export.sh` (see section 10).
 
@@ -378,6 +380,7 @@ Rounding rules (tested):
 | `DropThroughTimer` | `int` | Frames the fighter ignores one-way platforms |
 | `JumpsLeft` | `byte` | Double jump. Reset to 2 on landing (ground jump + one air jump) |
 | `PrevInput` | `InputFlags` | Previous frame input, to detect "button pressed this frame" |
+| `InputBuffer` | `InputBufferData` | Recent presses that an `InputPressed` condition can still use (added 2026-10-20, section 17) |
 
 `PrevInput` is part of the state. Rule: anything the simulation remembers between frames must be in `WorldData`.
 
@@ -752,9 +755,9 @@ Order of checks in the state update (each fighter, phase 1):
 2. **Shared transitions:** if the (new) state has the flag `Actionable`, the shared ground list (if grounded) or air list (if not grounded) of the fighter definition. Example: "Jump pressed → `JumpSquat`", "Attack1 pressed + Up held → `Attack1Up`". So common rules are written once.
 3. **State transitions:** the `Transitions` of the current state, in order.
 
-The first transition with all conditions true (and inside its frame window) wins. Shared rules come before the state rules, so an action (jump, attack) has priority over a simple movement change (`Idle` → `Walk`) on the same frame. At most one transition happens per tick: the duration end, or else one rule transition. (Reason: after `JumpSquat` ends, `Grounded` is still true from the last collision, so the new `Jump` state would use the ground list.) A button pressed on exactly the frame when a timed state ends is not seen; an input buffer can fix this later. A transition to the current state restarts it.
+The first transition with all conditions true (and inside its frame window) wins. Shared rules come before the state rules, so an action (jump, attack) has priority over a simple movement change (`Idle` → `Walk`) on the same frame. At most one transition happens per tick: the duration end, or else one rule transition. (Reason: after `JumpSquat` ends, `Grounded` is still true from the last collision, so the new `Jump` state would use the ground list.) A button pressed on exactly the frame when a timed state ends is not lost: the input buffer keeps it (section 17). A transition to the current state restarts it.
 
-Condition types (first version): `InputPressed(button)`, `InputHeld(button)`, `InputReleased(button)`, `DirectionHeld(Up | Down | Forward | Back | None)`, `Grounded`, `Airborne`, `OnPlatform`, `VelocityYDown`, `JumpsLeft`, `Custom`. `InputReleased` and `InputHeld` allow charged attacks later.
+Condition types (first version): `InputPressed(button)` (since 2026-10-20 a press from the input buffer, section 17), `InputHeld(button)`, `InputReleased(button)`, `DirectionHeld(Up | Down | Forward | Back | None)`, `Grounded`, `Airborne`, `OnPlatform`, `VelocityYDown`, `JumpsLeft`, `Custom`. `InputReleased` and `InputHeld` allow charged attacks later.
 
 Ground and air changes are not transitions in the list: they happen in the movement phase (after the collision), with `OnLanding` and `OnLeaveGround`. So a landing changes the state on the same frame (the M2 behavior).
 
@@ -819,7 +822,7 @@ Hit resolution (phase 4), for each hit in the list, all at the same time:
 
 Hitstop:
 - While `HitstopFrames > 0`, the fighter does not move, its `StateFrame` does not advance, and its transitions do not run. `HitstopFrames` counts down by 1 per frame.
-- `PrevInput` is not updated during hitstop. So a button pressed during hitstop is still detected as "pressed" on the first frame after it (a small input buffer).
+- `PrevInput` is not updated during hitstop. So a button pressed during hitstop is still detected as "pressed" on the first frame after it. Since 2026-10-20, the input buffer also keeps such a press valid after the hitstop (section 17).
 - `MatchRulesData.HitstopEnabled = false` switches it off.
 
 `HitTargets` resets to 0 when a new state starts. So one attack hits each target once. A multi-hit attack later can reset it with a frame action.
@@ -892,7 +895,7 @@ Each step stops for review.
 - Blocking or shields, grabs: new states, flags, and hit rules.
 - Cancel windows between attacks: transitions with frame windows already allow them.
 - Knockback that scales with damage.
-- An input buffer (a press stays valid for a few frames), so a press on the last frame of a busy state is not lost.
+- An input buffer (a press stays valid for a few frames), so a press on the last frame of a busy state is not lost. (Done 2026-10-20, section 17.)
 
 ---
 
@@ -922,7 +925,7 @@ Controllers use one **template set**. At startup (and when a controller connects
 
 Limits (accepted for now):
 - Godot numbers controllers in connection order. A controller that reconnects can get another number.
-- Input is read once per tick (16.7 ms). A press and release between two reads is lost. Later fix: record presses from input events until the next tick.
+- Input is read once per tick (16.7 ms). A press and release between two reads was lost. Fixed 2026-10-20 with the input latch (section 17.2): the devices record presses from input events until the next tick.
 
 ### 13.3 Input devices (`project/src/PlayerInput/`)
 
@@ -1375,7 +1378,7 @@ Each step stops for review.
      - Round 4 (user: a bigger arm swing, as in the reference): hands near / far per key: frame 0 (−20, −42) / (24, −52); frame 2 (−17, −43) / (21, −50); frame 4 (−3, −44) / (8, −45); frame 6 (15, −50) / (−12, −44) (frames 8 to 14: exchanged). The forward hand reaches past the hurtbox (visual only).
      - Screenshots with `Engine.time_scale` below about 0.02 time out (the screenshot service waits on the game clock); 0.04 works.
 5. **Tuning.** The user checks and changes the animations and the hitboxes in the editor (Claude helps on request).
-6. **Optional.** Input buffer and cancel windows.
+6. **Optional.** Input buffer and cancel windows. (The input buffer is done, section 17. Cancel windows: transitions with frame windows already allow them; open.)
 
 ### 16.9 Not in this milestone
 
@@ -1412,16 +1415,18 @@ Status: **Agreed** (2026-10-20). It comes before the DoubleJump animation (M6.5 
 ### 17.3 Input buffer (simulation)
 
 - `MatchRulesData.InputBufferFrames` (default 6, tune later; 0 = no buffer, the old behavior). Part of the rules hash.
-- `FighterData` keeps, for each button (all 7 `InputFlags` buttons), the age of its last press in frames, or "no press". A new press sets the age to 0. Each frame the age increases (saturates).
-- `InputPressed` is true when each of its buttons has a press that is not consumed and whose age is less than `InputBufferFrames` (with 0 frames: only a press on this frame).
+- `FighterData.InputBuffer` (`InputBufferData`, an inline array of one byte for each of the 7 `InputFlags` buttons) keeps the frames that the last press of each button stays valid. 0 = no valid press (also the default, so a new `FighterData` has an empty buffer). At the start of each tick, a press (held now, not in `PrevInput`) sets the value to `InputBufferFrames + 1`. At the end of each tick (where `PrevInput` is stored), each value decreases by 1.
+- `InputPressed` is true when each of its buttons has a valid press: pressed on this frame or in the last `InputBufferFrames` frames, and not consumed (with 0 frames: only a press on this frame, the old behavior).
+- `StateContext.Pressed` stays "pressed on this frame" (for hooks and custom conditions); only the `InputPressed` condition uses the buffer.
 - **Consumption:** when a transition fires, the buttons of its `InputPressed` conditions are consumed (set to "no press"). So one Jump press does not give JumpSquat and then an immediate DoubleJump.
 - Held directions (`InputHeld` and the direction conditions) still use the input of the frame of the transition. A buffered attack uses the direction held when it starts.
-- **Hitstop:** new presses are recorded during hitstop, but the ages do not increase. This replaces the old rule "`PrevInput` is not updated during hitstop", which was a small accidental buffer.
+- **Hitstop:** new presses are recorded during hitstop, but the values do not decrease. The rule "`PrevInput` is not updated during hitstop" stays, so a button pressed during hitstop and still held is recorded again on each frozen frame.
+- A new round clears the buffer (new `FighterData`). `PrevInput` is kept, as before.
 - The buffer is part of `FighterData`: snapshots, the hash, rollback, and `WorldDataDiff` include it with no extra code.
 - Risk: an action that the player did not want (for example a mashed Jump after a landing). The short window keeps this small.
 
 ### 17.4 Implementation steps
 
 1. Input latch in `InputDevice`, events from `MatchRunner`. The user tests it by hand with the debug step (tap Space while paused, then End).
-2. Input buffer in the simulation, with unit tests: a press during Land fires on the first actionable frame; a press older than the window is ignored; consumption (no DoubleJump from one press); hitstop; `InputBufferFrames` = 0 keeps the old behavior; SyncTest with the buffer.
-3. Update sections 12 (12.13 and the transition notes), 13.2 (the limit "a press and release between two reads is lost"), and 16.8 step 6.
+2. Input buffer in the simulation, with unit tests: a press during Land fires on the first actionable frame; a press older than the window is ignored; consumption (no DoubleJump from one press); hitstop; `InputBufferFrames` = 0 keeps the old behavior; SyncTest with the buffer. (Done. `InputBufferTests`: 14 new tests; the SyncTest and loopback tests use the default rules, so they run with the buffer. `CombatTests.SlotOrderDoesNotChangeCombatResults` uses new random seeds (33, 34): with the buffer, seeds 31 and 32 gave no hit. 260 tests pass. Checked in the game: a tap starts a jump, while running and while paused.)
+3. Update sections 12 (12.13 and the transition notes), 13.2 (the limit "a press and release between two reads is lost"), and 16.8 step 6. (Done. Also the `FighterData` table in section 9.)

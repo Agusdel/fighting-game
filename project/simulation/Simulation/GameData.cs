@@ -23,11 +23,29 @@ public sealed class MatchRulesData
     /// <summary>Frames between the end of a round (at most one fighter left) and the start of the next round.</summary>
     public int RestartDelayFrames { get; init; } = 120;
 
+    /// <summary>The largest value of <see cref="InputBufferFrames"/>.</summary>
+    public const int MaxInputBufferFrames = 60;
+
+    /// <summary>
+    /// The frames after a button press in which the press can still start an action (see <see cref="InputBufferData"/>).
+    /// 0 = no buffer: only a press on the same frame counts. 0 to <see cref="MaxInputBufferFrames"/>.
+    /// </summary>
+    public int InputBufferFrames
+    {
+        get => _inputBufferFrames;
+        init => _inputBufferFrames = value is >= 0 and <= MaxInputBufferFrames
+            ? value
+            : throw new ArgumentOutOfRangeException(nameof(InputBufferFrames), value, $"Use 0 to {MaxInputBufferFrames} frames.");
+    }
+
+    private readonly int _inputBufferFrames = 6;
+
     public ulong ComputeHash()
     {
         var hasher = new StateHasher();
         hasher.Add(HitstopEnabled);
         hasher.Add(RestartDelayFrames);
+        hasher.Add(InputBufferFrames);
         return hasher.Value;
     }
 }

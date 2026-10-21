@@ -55,7 +55,11 @@ public enum StateFlags : ushort
 
 public enum ConditionType : byte
 {
-    /// <summary>All buttons in <see cref="ConditionData.Buttons"/> are pressed on this frame (held now, not held on the last frame).</summary>
+    /// <summary>
+    /// All buttons in <see cref="ConditionData.Buttons"/> have a press in the input buffer: pressed on this frame or in the
+    /// last <see cref="MatchRulesData.InputBufferFrames"/> frames, and not used yet by another transition
+    /// (see <see cref="InputBufferData"/>).
+    /// </summary>
     InputPressed,
 
     /// <summary>All buttons in <see cref="ConditionData.Buttons"/> are held.</summary>

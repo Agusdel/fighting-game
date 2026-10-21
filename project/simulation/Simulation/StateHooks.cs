@@ -23,7 +23,10 @@ public readonly struct StateContext
     /// <summary>The buttons held on this frame.</summary>
     public InputFlags Input { get; }
 
-    /// <summary>The buttons pressed on this frame (held now, not held on the last frame).</summary>
+    /// <summary>
+    /// The buttons pressed on this frame (held now, not held on the last frame). The input buffer is not included: the
+    /// <see cref="ConditionType.InputPressed"/> condition uses <see cref="FighterData.InputBuffer"/>.
+    /// </summary>
     public InputFlags Pressed { get; }
 
     /// <summary>The buttons released on this frame (held on the last frame, not held now).</summary>

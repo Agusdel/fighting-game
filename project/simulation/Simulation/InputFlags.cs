@@ -5,6 +5,10 @@ using FightingGame.Core;
 namespace FightingGame.Simulation;
 
 /// <summary>The buttons of one player for one frame.</summary>
+/// <remarks>
+/// Each button is one bit, from bit 0 up, with no gaps. When you add a button, update
+/// <see cref="InputFlagsExtensions.ButtonCount"/> (a unit test checks it).
+/// </remarks>
 [Flags]
 public enum InputFlags : ushort
 {
@@ -26,6 +30,15 @@ public enum InputFlags : ushort
 
 public static class InputFlagsExtensions
 {
+    /// <summary>
+    /// The number of buttons in <see cref="InputFlags"/> (bits 0 to ButtonCount - 1). A constant, because inline arrays
+    /// (for example <see cref="InputBufferData"/>) need their length at compile time.
+    /// </summary>
+    public const int ButtonCount = 7;
+
+    /// <summary>All buttons of <see cref="InputFlags"/>.</summary>
+    public const InputFlags AllButtons = (InputFlags)((1 << ButtonCount) - 1);
+
     public static bool Has(this InputFlags bits, InputFlags flag) => (bits & flag) != 0;
 
     /// <summary>Returns -1 (left), +1 (right), or 0 (none, or both at the same time).</summary>

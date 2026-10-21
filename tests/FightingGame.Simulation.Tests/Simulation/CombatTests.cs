@@ -320,8 +320,8 @@ public class CombatTests
     [Fact]
     public void SlotOrderDoesNotChangeCombatResults()
     {
-        InputFlags[] inputA = WorldDataTests.RandomInputs(seed: 31, count: 900);
-        InputFlags[] inputB = WorldDataTests.RandomInputs(seed: 32, count: 900);
+        InputFlags[] inputA = WorldDataTests.RandomInputs(seed: 33, count: 900);
+        InputFlags[] inputB = WorldDataTests.RandomInputs(seed: 34, count: 900);
         var rules = new MatchRulesData { HitstopEnabled = true };
 
         // World 1: fighter A in slot 0, fighter B in slot 1. World 2: the same fighters in swapped slots.
